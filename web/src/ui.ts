@@ -150,30 +150,17 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
       }
       case 'show_human_check':
         return {
-          key: `human:${prompt.title}:${prompt.display ?? ''}`,
+          key: `human:${prompt.title}:${prompt.imageUrl ?? ''}`,
           node: slip(
             prompt.title,
-            prompt.display ? captcha(prompt.display) : null,
-            el('p', { class: 'summary' }, prompt.display ? 'Read the code to the agent, one letter at a time.' : prompt.prompt),
-            el('p', { class: 'hint' }, 'Do it out loud. The agent is listening.'),
+            prompt.imageUrl
+              ? el('img', { class: 'human-check-photo', src: prompt.imageUrl, alt: 'Photo for the humanity check question' })
+              : null,
+            el('p', { class: 'summary' }, prompt.prompt),
+            el('p', { class: 'hint' }, 'Say the answer out loud. The agent is listening.'),
           ),
         };
     }
-  }
-
-  function captcha(code: string): HTMLElement {
-    const wrap = el('p', { class: 'captcha', 'aria-label': 'Distorted code' });
-    [...code].forEach((ch, i) => {
-      const r = ((i * 37) % 23) - 11;
-      const y = ((i * 53) % 13) - 6;
-      const skew = ((i * 29) % 21) - 10;
-      const span = el('span', {}, ch);
-      span.style.setProperty('--r', `${r}deg`);
-      span.style.setProperty('--y', `${y}px`);
-      span.style.setProperty('--s', `${skew}deg`);
-      wrap.append(span);
-    });
-    return wrap;
   }
 
   function ticketSlip(t: Ticket): HTMLElement {

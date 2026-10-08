@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ServerMessage } from '../../shared/protocol.js';
-import { PUZZLES, countWords, normalizeWord } from './content.js';
+import { PUZZLES, countWords, extractNumber, normalizeWord } from './content.js';
 import { Gauntlet, type ToolResult } from './engine.js';
 import { Registry } from './sessions.js';
 
@@ -48,6 +48,13 @@ describe('content', () => {
   it('counts words', () => {
     assert.equal(countWords('  one two   three '), 3);
     assert.equal(countWords(''), 0);
+  });
+
+  it('pulls a season or episode number out of spoken text, digits or words', () => {
+    assert.equal(extractNumber('season two'), 2);
+    assert.equal(extractNumber('episode 6'), 6);
+    assert.equal(extractNumber('pretty sure it was episode twelve'), 12);
+    assert.equal(extractNumber('I have no idea'), null);
   });
 });
 
@@ -158,79 +165,51 @@ describe('gauntlet', () => {
     assert.equal(g.phase, 'humanCheck');
   }
 
-  it('passes a coin-flip check when the server RNG says pass', () => {
-    // rng calls in order: language pick (0), human-check pick (0 = happy-birthday), coin flip (0 < 0.5)
+  it('passes a fashion trivia question when the spoken number matches', () => {
+    // rng calls in order: language pick (0), human-check pick (0 -> index 0 -> sunflower-pants, expected 2)
+    const { g, events } = setup([0, 0]);
+    toHumanCheck(g);
+    g.startHumanCheck();
+    const shown = lastOfType(events, 'show_human_check')!;
+    assert.equal(shown.title, 'Fashion archive');
+    assert.equal(shown.imageUrl, '/fashion/sunflower-pants.png');
+    expectOk(g.submitHumanCheck('season two'));
+    assert.equal(g.phase, 'ticket');
+  });
+
+  it('fails on the wrong number, then offers a different question', () => {
+    // language pick (0), human-check pick (0 -> sunflower-pants, expected 2)
     const { g, events } = setup([0, 0, 0]);
     toHumanCheck(g);
     g.startHumanCheck();
-    assert.equal(lastOfType(events, 'show_human_check')!.title, 'Cultural compliance');
-    expectOk(g.submitHumanCheck('la la la'));
-    assert.equal(g.phase, 'ticket');
-  });
-
-  it('fails a coin-flip check when the RNG says so, then offers a different task', () => {
-    // language pick (0), human-check pick (0), coin flip (0.9 = fail)
-    const { g, events } = setup([0, 0, 0.9]);
-    toHumanCheck(g);
-    g.startHumanCheck();
-    const firstTitle = lastOfType(events, 'show_human_check')!.title;
-    expectOk(g.submitHumanCheck('la la la'));
+    const firstImage = lastOfType(events, 'show_human_check')!.imageUrl;
+    expectOk(g.submitHumanCheck('season five'));
     assert.equal(g.phase, 'humanCheck');
     assert.equal(g.attempts.humanCheck, 2);
     g.startHumanCheck();
-    assert.notEqual(lastOfType(events, 'show_human_check')!.title, firstTitle);
+    assert.notEqual(lastOfType(events, 'show_human_check')!.imageUrl, firstImage);
   });
 
-  it('checks the CAPTCHA exactly, ignoring case and spacing', () => {
-    // human-check pick 0.5 -> index 2 -> captcha
-    const wrong = setup([0, 0.5, 0.1]);
-    toHumanCheck(wrong.g);
-    wrong.g.startHumanCheck();
-    const shown = lastOfType(wrong.events, 'show_human_check')!;
-    assert.equal(shown.title, 'Visual verification');
-    assert.equal(shown.display?.length, 5);
-    expectOk(wrong.g.submitHumanCheck('definitely not it'));
-    assert.equal(wrong.g.phase, 'humanCheck');
+  it('reads a digit answer the same as a spelled-out one', () => {
+    // human-check pick 0.7 -> index 4 -> cheetah, expected 5
+    const digit = setup([0, 0.7]);
+    toHumanCheck(digit.g);
+    digit.g.startHumanCheck();
+    expectOk(digit.g.submitHumanCheck('episode 5'));
+    assert.equal(digit.g.phase, 'ticket');
 
-    const right = setup([0, 0.5, 0.1]);
-    toHumanCheck(right.g);
-    right.g.startHumanCheck();
-    const code = lastOfType(right.events, 'show_human_check')!.display!;
-    expectOk(right.g.submitHumanCheck(code.split('').join(' ').toLowerCase()));
-    assert.equal(right.g.phase, 'ticket');
-  });
-
-  it('checks the seven-word answer by counting words on the server', () => {
-    // human-check pick 0.7 -> index 3 -> seven-word-meal
-    const eight = setup([0, 0.7]);
-    toHumanCheck(eight.g);
-    eight.g.startHumanCheck();
-    assert.equal(lastOfType(eight.events, 'show_human_check')!.title, 'Biographical audit');
-    expectOk(eight.g.submitHumanCheck('I ate a sandwich yesterday at noon today'));
-    assert.equal(eight.g.phase, 'humanCheck', 'eight words fails');
-
-    const seven = setup([0, 0.7]);
-    toHumanCheck(seven.g);
-    seven.g.startHumanCheck();
-    expectOk(seven.g.submitHumanCheck('I had three tacos and one apology'));
-    assert.equal(seven.g.phase, 'ticket', 'seven words passes');
-  });
-
-  it('needs a verdict for model-judged checks', () => {
-    // pick index 4 -> tongue-twister (0.9 * 5 = 4.5 -> 4)
-    const { g } = setup([0, 0.9]);
-    toHumanCheck(g);
-    g.startHumanCheck();
-    assert.equal(g.submitHumanCheck('she sells seashells').ok, false);
-    expectOk(g.submitHumanCheck('she sells seashells by the seashore', true));
-    assert.equal(g.phase, 'ticket');
+    const spelled = setup([0, 0.7]);
+    toHumanCheck(spelled.g);
+    spelled.g.startHumanCheck();
+    expectOk(spelled.g.submitHumanCheck('episode five'));
+    assert.equal(spelled.g.phase, 'ticket');
   });
 
   it('files a ticket, finishes, and reports completion once', () => {
-    const { g, events } = setup([0, 0.9]);
+    const { g, events } = setup([0, 0]);
     toHumanCheck(g);
     g.startHumanCheck();
-    g.submitHumanCheck('x', true);
+    g.submitHumanCheck('season two');
     const r = g.createTicket('Printer on fire', 'It is literally on fire');
     expectOk(r);
     assert.equal(g.phase, 'done');

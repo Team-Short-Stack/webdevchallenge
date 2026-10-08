@@ -214,28 +214,13 @@ body {
   line-height: 1.2;
 }
 
-.captcha {
-  position: relative;
+.human-check-photo {
+  display: block;
+  width: 100%;
+  max-width: 320px;
   margin: 6px 0 4px;
-  padding: 6px 4px;
-  overflow: hidden;
-}
-
-.captcha span {
-  display: inline-block;
-  margin: 0 7px;
-  font-family: var(--font-led);
-  font-weight: 800;
-  font-size: 3.6rem;
-  transform: translateY(var(--y)) rotate(var(--r)) skewX(var(--s));
-}
-
-.captcha::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(-14deg, transparent 0 14px, rgba(14, 20, 36, 0.35) 14px 16px);
-  pointer-events: none;
+  border-radius: 10px;
+  object-fit: cover;
 }
 
 .slip-qr {

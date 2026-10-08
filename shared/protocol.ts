@@ -39,7 +39,7 @@ export type PromptMessage =
   | { type: 'show_puzzle'; display: string; attempt: number }
   | { type: 'show_language_prompt'; language: string; phrase: string; meaning: string }
   | { type: 'show_qr'; url: string; requirement: string; expiresAt: number }
-  | { type: 'show_human_check'; title: string; prompt: string; display?: string };
+  | { type: 'show_human_check'; title: string; prompt: string; imageUrl?: string };
 
 /** Server -> laptop. */
 export type ServerMessage =

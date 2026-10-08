@@ -13,7 +13,7 @@ import {
   PUZZLES,
   SELFIE_REQUIREMENTS,
   buildHumanCheck,
-  countWords,
+  extractNumber,
   normalizeCode,
   normalizeWord,
   pickOne,
@@ -292,20 +292,18 @@ export class Gauntlet {
     const pool = unused.length > 0 ? unused : HUMAN_CHECK_IDS.filter((id) => id !== this.humanCheck?.id);
     const id = pickOne(pool, this.rng);
     this.usedHumanChecks.add(id);
-    const check = buildHumanCheck(id, this.rng);
+    const check = buildHumanCheck(id);
     this.humanCheck = check;
     this.show({
       type: 'show_human_check',
       title: check.title,
       prompt: check.prompt,
-      display: check.display,
+      imageUrl: check.imageUrl,
     });
-    const needsVerdict = check.judge === 'model';
     return ok(
       `Give the caller this task: "${check.prompt}" ` +
-        (check.display ? 'The code is on their screen; do not read it. ' : '') +
-        'Then call submit_human_check with exactly what you heard' +
-        (needsVerdict ? ', and a verdict of true or false on whether they did it properly.' : '. Leave verdict out.'),
+        'There is a photo on their screen; do not describe it or hint at the answer. ' +
+        'Then call submit_human_check with exactly what you heard. Leave verdict out.',
     );
   }
 
@@ -316,18 +314,8 @@ export class Gauntlet {
 
     let passed: boolean;
     switch (check.judge) {
-      case 'coinflip':
-        passed = this.rng() < 0.5;
-        break;
-      case 'exact':
-        passed = normalizeCode(heard) === normalizeCode(String(check.expected ?? ''));
-        break;
-      case 'wordcount':
-        passed = countWords(heard) === Number(check.expected);
-        break;
-      case 'model':
-        if (verdict === undefined) return fail('This task needs a verdict. Call submit_human_check again with verdict true or false.');
-        passed = verdict;
+      case 'number':
+        passed = extractNumber(heard) === check.expected;
         break;
     }
     this.resolve('humanCheck', passed, passed ? undefined : 'Inconclusive');
