@@ -1,4 +1,4 @@
-# Help Desk + openAI + twilio
+# Help Desk From Hell
 
 A phone-driven help desk that makes callers pass absurd tests before they can file a ticket. The caller phones a
 Twilio number and talks to an OpenAI voice agent. A three.js scene of planets on a laptop shows their progress:
@@ -12,6 +12,12 @@ each stage of the gauntlet belongs to its own planet.
 | Selfie | Mars | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
 | Human check | Jupiter | Does one random task (sing, make a modem noise, read a CAPTCHA, ...) |
 | Ticket | Saturn | Describes the problem; the agent files a ticket |
+
+## What it looks like
+
+Screenshots from a scripted run live in `docs/screenshots/`: pairing, puzzle, language, the QR code, the selfie card
+beside Mars, the human check, the ticket stage, the finished overview, and the phone page. They use fallback fonts,
+because the web fonts could not load where they were captured.
 
 ## How it fits together
 
@@ -28,6 +34,8 @@ WebSocket, the selfie upload, and the static web app. See `docs/DESIGN.md` and `
 ## Quick start (laptop plus ngrok)
 
 You need Node 22+, a Twilio account with a voice number, an OpenAI API key with Realtime access, and ngrok.
+**New to any of these? Follow [SETUP.md](SETUP.md) first**; it walks through creating each account and where every
+value comes from.
 
 ```bash
 npm install
