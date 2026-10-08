@@ -6,11 +6,11 @@ each stage of the gauntlet belongs to its own planet.
 
 | Stage | Planet | What the caller does |
 | --- | --- | --- |
-| Pairing | Mercury | Spells out the silly code shown on the laptop |
-| Language | Earth | Says a phrase in another language |
-| Selfie | Mars | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
-| Human check | Jupiter | Answers a fashion-trivia question about a photo shown on the laptop |
-| Ticket | Saturn | Describes the problem; the agent files a ticket |
+| Pairing | Lolzitron | Spells out the silly code shown on the laptop |
+| Language | Translatopia | Says a phrase in another language |
+| Selfie | Snapturn | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
+| Human check | Lengsdwarf | Answers a fashion-trivia question about a photo shown on the laptop |
+| Ticket | Opus 1 | Describes the problem; the agent files a ticket |
 
 ## What it looks like
 

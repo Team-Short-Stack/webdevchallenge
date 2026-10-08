@@ -5,7 +5,7 @@ export interface SceneApi {
   setPhase(phase: Phase): void;
   /** A short visual reaction to a test result on that stage's planet. */
   flash(stage: Stage, passed: boolean): void;
-  /** Show (or clear) the caller's selfie as an ID card floating beside Mars. */
+  /** Show (or clear) the caller's selfie as an ID card floating beside Snapturn. */
   setPhoto(dataUrl: string | null): void;
   dispose(): void;
 }
@@ -24,7 +24,7 @@ const SPECS: Record<Stage, PlanetSpec> = {
   pairing: { radius: 1.1, base: '#8d8a86', accents: ['#6f6c68', '#aaa6a0', '#5d5a57'], kind: 'craters' },
   language: { radius: 2.0, base: '#2f6db5', accents: ['#3f8a52', '#8a7a4a', '#ffffff'], kind: 'earth' },
   selfie: { radius: 1.5, base: '#b5502e', accents: ['#8e3a1f', '#d27a4a', '#6e2c18'], kind: 'craters' },
-  humanCheck: { radius: 3.4, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
+  humanCheck: { radius: 0.7, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
   ticket: { radius: 2.8, base: '#dcc58f', accents: ['#c3a96f', '#efdcae', '#b09257'], kind: 'bands', ring: true },
 };
 
@@ -220,7 +220,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
     return { stage, mesh, halo, haloMaterial, label, home, shake: 0, pulse: 0, tint: 0 };
   });
 
-  // Selfie ID card beside Mars
+  // Selfie ID card beside Snapturn
   const marsHome = POSITIONS.selfie;
   const card = new THREE.Group();
   const cardFrame = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xe6ebf2, transparent: true, opacity: 0 }));

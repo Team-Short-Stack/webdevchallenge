@@ -12,7 +12,7 @@ export class TicketStore {
   add(draft: { summary: string; details: string }): Ticket {
     this.counter += 1;
     const ticket: Ticket = {
-      id: `HDFH-${String(this.counter).padStart(4, '0')}`,
+      id: `UHC-${String(this.counter).padStart(4, '0')}`,
       summary: draft.summary.slice(0, 200),
       details: draft.details.slice(0, 2000),
       createdAt: new Date().toISOString(),

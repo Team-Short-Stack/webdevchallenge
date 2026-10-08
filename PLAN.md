@@ -25,7 +25,7 @@ Never run against the real services, and not yet seen:
 
 - [ ] Follow the README quick start: `.env`, `npm run build`, ngrok, Twilio webhook, `npm run dev`.
 - [ ] Verify your phone number in Twilio (trial accounts only accept verified callers) or upgrade the account.
-- [ ] Call, hear the greeting, say the code. Done when the laptop moves from Mercury to Earth.
+- [ ] Call, hear the greeting, say the code. Done when the laptop moves from Lolzitron to Translatopia.
 - [ ] If the agent stays silent after the greeting, check the server log for `connected to OpenAI Realtime` and
       `realtime error`, and confirm the API key has Realtime access.
 - [ ] Walk the whole gauntlet once. Done when a ticket appears in the side list.
@@ -81,7 +81,9 @@ Never run against the real services, and not yet seen:
 
 ## Open questions
 
-- Venus/the word puzzle is gone; is Mercury → Earth → Mars → Jupiter → Saturn the mapping you want for what's left?
+- Venus/the word puzzle is gone, and all five remaining planets now have silly names instead of real-planet
+  ones: Lolzitron (pairing), Translatopia (language), Snapturn (selfie), Lengsdwarf (human check, deliberately
+  the smallest), Opus 1 (ticket).
 - Should a failed test also flash the sign, not just shake the planet?
 - Show every caller's tickets (current behavior) or only the current call's?
-- Photo as a card beside Mars (current behavior) or mapped onto the planet?
+- Photo as a card beside Snapturn (current behavior) or mapped onto the planet?

@@ -11,7 +11,10 @@ https://claude.ai/code/artifact/3c19e4b1-9392-4fc5-a811-863d15a1a677
   the agent calls `pair_session`.
 - **Selfie by QR code, not SMS.** At the selfie stage the laptop shows a QR code holding a one-time link. The
   caller scans it with their phone camera. This avoids US texting registration.
-- **Planets map to stages.** Mercury pairing, Earth language, Mars selfie, Jupiter human check, Saturn ticket.
+- **Planets map to stages.** Lolzitron pairing, Translatopia language, Snapturn selfie, Lengsdwarf human check,
+  Opus 1 ticket.
+  Planet names are being reworked to be sillier; Lengsdwarf (renamed from Jupiter) is deliberately the smallest
+  of the five, since a "dwarf" shouldn't be the biggest planet in the scene.
   (The word-puzzle stage and its planet, Venus, were cut — it took too long and exercised the same Twilio
   feature, the live Media Stream, as every other stage.)
 - **Human check is drawn from six fashion-trivia questions, once per call.** Each pairs a photo shown on the

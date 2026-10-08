@@ -21,7 +21,7 @@ function setup(rngValues: number[] = [0], now = { t: 1_000 }) {
     code: '4271',
     rng: scripted(rngValues),
     emit: (m) => events.push(m),
-    saveTicket: (d) => ({ id: 'HDFH-0001', createdAt: 'now', ...d }),
+    saveTicket: (d) => ({ id: 'UHC-0001', createdAt: 'now', ...d }),
     buildSelfieUrl: (t) => `https://example.test/selfie.html?t=${t}`,
     now: () => now.t,
     selfieTtlMs: 60_000,
@@ -192,7 +192,7 @@ describe('gauntlet', () => {
     const r = g.createTicket('Printer on fire', 'It is literally on fire');
     expectOk(r);
     assert.equal(g.phase, 'done');
-    assert.equal(lastOfType(events, 'ticket_created')?.ticket.id, 'HDFH-0001');
+    assert.equal(lastOfType(events, 'ticket_created')?.ticket.id, 'UHC-0001');
     g.endCall('hangup');
     g.endCall('hangup');
     const ended = events.filter((e) => e.type === 'call_ended');

@@ -8,11 +8,11 @@ export type Stage = (typeof STAGES)[number];
 export type Phase = Stage | 'done' | 'abandoned';
 
 export const PLANETS: Record<Stage, string> = {
-  pairing: 'Mercury',
-  language: 'Earth',
-  selfie: 'Mars',
-  humanCheck: 'Jupiter',
-  ticket: 'Saturn',
+  pairing: 'Lolzitron',
+  language: 'Translatopia',
+  selfie: 'Snapturn',
+  humanCheck: 'Lengsdwarf',
+  ticket: 'Opus 1',
 };
 
 export const STAGE_LABELS: Record<Stage, string> = {
