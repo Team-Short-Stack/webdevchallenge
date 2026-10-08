@@ -1,0 +1,22 @@
+{
+  "name": "help-desk-from-hell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A voice-driven help desk that makes callers pass absurd tests before they can file a ticket. Twilio + OpenAI Realtime + three.js.",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "npm run dev --workspace server",
+    "dev:web": "npm run dev --workspace web",
+    "build": "npm run build --workspace web",
+    "start": "npm run start --workspace server",
+    "typecheck": "npm run typecheck --workspace server && npm run typecheck --workspace web",
+    "test": "npm run test --workspace server"
+  }
+}

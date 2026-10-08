@@ -1,0 +1,105 @@
+:root {
+  --void: #070b16;
+  --slip: #e6ebf2;
+  --slip-ink: #0e1424;
+  --ink: #eef2fb;
+  --ink-dim: #8fa0bc;
+  --led: #ff4a3d;
+  --pass: #2ee6c8;
+  --font-ui: 'Public Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-ui);
+}
+
+main {
+  display: grid;
+  align-content: center;
+  min-height: 100dvh;
+  padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+}
+
+.slip {
+  width: min(460px, 100%);
+  margin: 0 auto;
+  padding: 28px 24px 24px;
+  background: var(--slip);
+  color: var(--slip-ink);
+  border-radius: 6px;
+}
+
+h1 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+}
+
+p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.requirement {
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.hint {
+  margin-top: 12px;
+  font-size: 0.92rem;
+  color: rgba(14, 20, 36, 0.66);
+}
+
+.error {
+  margin-top: 12px;
+  color: #a3180d;
+  font-weight: 600;
+}
+
+.button {
+  display: block;
+  width: 100%;
+  margin-top: 18px;
+  padding: 16px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--slip-ink);
+  color: var(--slip);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button:focus-visible {
+  outline: 3px solid var(--led);
+  outline-offset: 2px;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 46dvh;
+  margin-top: 16px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: #cfd6e2;
+}
+
+.sent {
+  color: #0a7a68;
+}
