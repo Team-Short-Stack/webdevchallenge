@@ -1,4 +1,4 @@
-# Help Desk From Hell
+# Help Desk + openAI + twilio
 
 A phone-driven help desk that makes callers pass absurd tests before they can file a ticket. The caller phones a
 Twilio number and talks to an OpenAI voice agent. A three.js scene of planets on a laptop shows their progress:
