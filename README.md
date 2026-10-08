@@ -1,4 +1,4 @@
-# Help Desk From Hell
+# Universal Help Care
 
 A phone-driven help desk that makes callers pass absurd tests before they can file a ticket. The caller phones a
 Twilio number and talks to an OpenAI voice agent. A three.js scene of planets on a laptop shows their progress:
@@ -91,8 +91,8 @@ The QR code points at `PUBLIC_BASE_URL`, so the selfie page is served from the b
 ## Docker
 
 ```bash
-docker build -t help-desk-from-hell .
-docker run --env-file .env -p 5050:5050 help-desk-from-hell
+docker build -t universal-help-care .
+docker run --env-file .env -p 5050:5050 universal-help-care
 ```
 
 In production (`NODE_ENV=production`, set by the image) `TWILIO_AUTH_TOKEN` is required.
