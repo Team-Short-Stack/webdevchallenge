@@ -15,22 +15,26 @@ short spoken sentences. No lists, no markdown, no emoji. Speak English unless a 
 
 How the call works. The server decides what happens next, not you. You move the caller through stages
 using tools, and each tool result tells you exactly what to say and which tool to call next:
-  1. pair_session: the caller reads a four-digit code from their laptop screen.
-  2. start_puzzle, then submit_puzzle_answer.
-  3. start_language_test, then report_language_result.
-  4. request_selfie. The caller scans a QR code on their laptop. When the photo arrives you will get a
+  1. pair_session: the caller reads a short code from their laptop screen, letter by letter.
+  2. start_language_test, then report_language_result.
+  3. request_selfie. The caller scans a QR code on their laptop. When the photo arrives you will get a
      system message with the image; judge it and call report_selfie_result.
-  5. start_human_check, then submit_human_check.
-  6. create_ticket, after asking the caller what their problem is.
+  4. start_human_check, then submit_human_check.
+  5. create_ticket, after asking the caller what their problem is.
 
 Rules you must follow:
 - Always call the tool for the current stage. Never skip a stage and never invent a result.
 - If a tool says you are at a different stage, follow what it says.
-- Never reveal puzzle answers, CAPTCHA codes, or how any check is judged. If asked, say it is policy.
+- Never reveal how any check is judged. If asked, say it is policy.
 - Never say a check was decided by chance. A failed check is "inconclusive" or "logged as an incident".
-- The caller can see puzzles, phrases and codes on their screen. Do not read them out.
+- The caller can see phrases and codes on their screen. Do not read them out.
 - Start the conversation yourself as soon as the caller speaks: ask for the code on their screen.
 - Judge the selfie honestly against the stated requirement, in one short sentence.
+- If the selfie passes, add exactly one sneaky, backhanded remark about something specific and mundane you
+  actually see in that photo — hair, tiredness, posture, outfit, background clutter — in the style of "Didn't
+  get much sleep last night, did you?" or "Hmm... time for a haircut?" Keep it PG and gently teasing, never
+  genuinely cruel, and never comment on body shape, weight, race, disability, or anything else not casually
+  changeable.
 `.trim();
 
 const json = (result: ToolResult): string => JSON.stringify(result);
@@ -59,7 +63,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     if (!session) {
       return json({
         ok: false,
-        error: 'The caller is not paired yet. Ask for the four-digit code on their screen and call pair_session.',
+        error: 'The caller is not paired yet. Ask for the code on their screen, spelled out, and call pair_session.',
       });
     }
     return json(fn(session));
@@ -68,8 +72,8 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   const tools = [
     tool({
       name: 'pair_session',
-      description: 'Pair this phone call with the caller\'s laptop using the four-digit code they read out.',
-      parameters: z.object({ code: z.string().describe('The digits the caller said, for example "4271".') }),
+      description: 'Pair this phone call with the caller\'s laptop using the code they spelled out.',
+      parameters: z.object({ code: z.string().describe('The letters the caller said, for example "F M L".') }),
       execute: async ({ code }) => {
         if (session) return json(session.gauntlet.pair(code));
         const found = registry.findByCode(code);
@@ -84,25 +88,13 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
           }
           return json({
             ok: false,
-            error: 'No open session has that code. Ask the caller to read the four digits on their screen again.',
+            error: 'No open session has that code. Ask the caller to spell out the code on their screen again.',
           });
         }
         session = found;
         found.phone = link;
         return json(found.gauntlet.pair(code));
       },
-    }),
-    tool({
-      name: 'start_puzzle',
-      description: 'Show the caller a word puzzle on their screen. Call at the puzzle stage, and again after a wrong answer.',
-      parameters: z.object({}),
-      execute: async () => bound((s) => s.gauntlet.startPuzzle()),
-    }),
-    tool({
-      name: 'submit_puzzle_answer',
-      description: 'Submit the answer the caller said to the word puzzle.',
-      parameters: z.object({ answer: z.string().describe('Exactly what the caller said.') }),
-      execute: async ({ answer }) => bound((s) => s.gauntlet.submitPuzzleAnswer(answer)),
     }),
     tool({
       name: 'start_language_test',

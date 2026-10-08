@@ -6,11 +6,10 @@ each stage of the gauntlet belongs to its own planet.
 
 | Stage | Planet | What the caller does |
 | --- | --- | --- |
-| Pairing | Mercury | Says the 4-digit code shown on the laptop |
-| Word puzzle | Venus | Reads a scrambled word or riddle on screen and says the answer |
+| Pairing | Mercury | Spells out the silly code shown on the laptop |
 | Language | Earth | Says a phrase in another language |
 | Selfie | Mars | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
-| Human check | Jupiter | Does one random task (sing, make a modem noise, read a CAPTCHA, ...) |
+| Human check | Jupiter | Answers a fashion-trivia question about a photo shown on the laptop |
 | Ticket | Saturn | Describes the problem; the agent files a ticket |
 
 ## What it looks like
@@ -24,7 +23,7 @@ because the web fonts could not load where they were captured.
 ```
 phone call --> Twilio --> your server --> OpenAI Realtime (voice agent + tools)
                               |
-laptop browser (three.js) <---+   WebSocket: puzzles, results, selfie, tickets
+laptop browser (three.js) <---+   WebSocket: prompts, results, selfie, tickets
 phone camera --scans QR on laptop--> selfie page --> your server --> voice agent judges the photo
 ```
 
@@ -49,8 +48,8 @@ ngrok http 5050               # copy the https URL it prints
 2. In the Twilio console, open your number, and under **Voice Configuration > A call comes in** set a webhook
    (HTTP POST) to `https://YOUR-NGROK-URL/incoming-call`.
 3. Start the server: `npm run dev` (or `npm start`).
-4. Open <http://localhost:5050> on your laptop. You will see a 4-digit code.
-5. Call your Twilio number from your phone and say the code.
+4. Open <http://localhost:5050> on your laptop. You will see a short code.
+5. Call your Twilio number from your phone and spell out the code.
 
 Notes:
 

@@ -87,7 +87,6 @@ function handle(message: ServerMessage) {
       state.paired = true;
       ui.toast('Verified. Barely.', 'pass');
       break;
-    case 'show_puzzle':
     case 'show_language_prompt':
     case 'show_qr':
     case 'show_human_check':

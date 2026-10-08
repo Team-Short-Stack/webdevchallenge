@@ -107,7 +107,6 @@ await app.register(async (scope) => {
   // ------------------------------------------------------------- laptop
   const clientMessage = z.discriminatedUnion('type', [
     z.object({ type: z.literal('hello'), sessionId: z.string().optional() }),
-    z.object({ type: z.literal('typed_answer'), answer: z.string().max(200) }),
   ]);
 
   scope.get('/ws/laptop', { websocket: true }, (socket, request) => {
@@ -140,8 +139,6 @@ await app.register(async (scope) => {
         session.laptops.add(socket);
         socket.send(JSON.stringify(session.snapshot()));
         request.log.info({ sessionId: session.id }, 'laptop connected');
-      } else if (message.type === 'typed_answer' && session) {
-        session.gauntlet.submitPuzzleAnswer(message.answer);
       }
     });
     socket.on('close', () => {

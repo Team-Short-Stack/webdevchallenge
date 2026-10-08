@@ -17,7 +17,7 @@ export interface AppState {
   phoneNumber: string | null;
 }
 
-export const emptyAttempts = (): Attempts => ({ pairing: 0, puzzle: 0, language: 0, selfie: 0, humanCheck: 0, ticket: 0 });
+export const emptyAttempts = (): Attempts => ({ pairing: 0, language: 0, selfie: 0, humanCheck: 0, ticket: 0 });
 
 export function initialState(): AppState {
   return {

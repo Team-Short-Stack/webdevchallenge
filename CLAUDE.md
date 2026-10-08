@@ -13,7 +13,7 @@ It is a fun demo, about 20 to 30 calls total, not a production system.
 - `shared/protocol.ts`: stages, planets, and every message type between server and laptop. Imported by both sides.
 - `server/src/machine.ts`: XState machine, one per call. Stages are states; PASSED advances, FAILED re-enters.
 - `server/src/engine.ts`: `Gauntlet`, all test logic for one call, with no network code. Start here for behavior.
-- `server/src/content.ts`: puzzles, languages, selfie requirements, the five human-check tasks.
+- `server/src/content.ts`: pairing codes, languages, selfie requirements, the fashion-trivia human-check questions.
 - `server/src/voice.ts`: Twilio media stream to OpenAI Realtime via the OpenAI Agents SDK. Defines the agent
   instructions and the tools, each of which calls into `Gauntlet`.
 - `server/src/app.ts`: Fastify routes (`/incoming-call`, `/media-stream`, `/ws/laptop`, `/api/selfie`, static web).
@@ -40,7 +40,7 @@ npm run dev            # server with reload (needs .env)
    random.
 2. **Every tool checks the current stage** and returns a clear error otherwise. Do not add a tool that bypasses
    the state machine.
-3. **Tool results must never contain puzzle answers or CAPTCHA codes.** The model would say them aloud.
+3. **Tool results must never contain an answer the model would have to judge.** The model would say it aloud.
 4. **Keep `shared/protocol.ts` the single source of truth** for messages. Update server and web together.
 5. **Secrets stay in environment variables.** Never log full phone numbers (use `maskNumber`), never commit `.env`.
 6. **Protections stay on:** Twilio signature check, stream gate, caller allow list, concurrency and duration caps.

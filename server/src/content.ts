@@ -2,20 +2,38 @@
 
 export type Rng = () => number;
 
-export interface Puzzle {
-  display: string;
-  answer: string;
-}
-
-/** Ordered easy to hard. A failed attempt moves the caller to the next one. */
-export const PUZZLES: Puzzle[] = [
-  { display: 'TKCIET', answer: 'ticket' },
-  { display: 'RIRPNET', answer: 'printer' },
-  { display: 'DWORSPSA', answer: 'password' },
-  { display: 'WEIFLARL', answer: 'firewall' },
-  { display: 'I have keys but open no locks. What am I?', answer: 'keyboard' },
-  { display: 'I have a mouse but have never eaten cheese. What am I?', answer: 'computer' },
-];
+/**
+ * Silly pairing codes the caller spells out to the agent instead of digits. Drawn from a few
+ * batches generated with server/scripts/generate-pairing-codes.ts and hand-picked for being
+ * pronounceable and funny (the model tends to drift into either real words or unpronounceable
+ * letter noise, so review anything newly generated before adding it here).
+ */
+export const PAIRING_CODES = [
+  'FML',
+  'SMH',
+  'BRB',
+  'TBH',
+  'LMK',
+  'FOMO',
+  'YOLO',
+  'LYLS',
+  'WUBS',
+  'ZAZZ',
+  'NURD',
+  'WHAP',
+  'GORM',
+  'SPLU',
+  'KLOP',
+  'MURP',
+  'HOOF',
+  'JIBS',
+  'SQUK',
+  'SHNOZ',
+  'PLOP',
+  'DING',
+  'BEEP',
+  'GLOP',
+] as const;
 
 export interface LanguageCheck {
   language: string;
@@ -164,10 +182,6 @@ export function pickOne<T>(items: readonly T[], rng: Rng): T {
   const item = items[Math.floor(rng() * items.length)];
   if (item === undefined) throw new Error('pickOne called with an empty list');
   return item;
-}
-
-export function normalizeWord(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 export function normalizeCode(s: string): string {

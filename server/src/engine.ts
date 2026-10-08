@@ -10,17 +10,14 @@ import {
 import {
   HUMAN_CHECK_IDS,
   LANGUAGES,
-  PUZZLES,
   SELFIE_REQUIREMENTS,
   buildHumanCheck,
   extractNumber,
   normalizeCode,
-  normalizeWord,
   pickOne,
   type HumanCheck,
   type HumanCheckId,
   type LanguageCheck,
-  type Puzzle,
   type Rng,
 } from './content.js';
 import {
@@ -72,7 +69,6 @@ export class Gauntlet {
   private readonly selfieTtlMs: number;
   private readonly opts: GauntletOptions;
 
-  private puzzle: Puzzle | null = null;
   private language: LanguageCheck | null = null;
   private humanCheck: HumanCheck | null = null;
   private readonly usedHumanChecks = new Set<HumanCheckId>();
@@ -155,36 +151,7 @@ export class Gauntlet {
     this.resolve('pairing', true);
     return ok(
       'The caller is verified. Welcome them with weary bureaucratic enthusiasm, explain that several ' +
-        'mandatory checks stand between them and a ticket, then call start_puzzle.',
-    );
-  }
-
-  // --------------------------------------------------------------- puzzle
-
-  startPuzzle(): ToolResult {
-    if (this.phase !== 'puzzle') return this.wrongStage('puzzle');
-    const index = (this.attempts.puzzle - 1) % PUZZLES.length;
-    const puzzle = PUZZLES[index];
-    if (!puzzle) return fail('No puzzles configured.');
-    this.puzzle = puzzle;
-    this.show({ type: 'show_puzzle', display: puzzle.display, attempt: this.attempts.puzzle });
-    return ok(
-      'The puzzle is now on the caller\'s screen. Do NOT read it aloud or hint at the answer. ' +
-        'Tell the caller to read it and say the answer, then call submit_puzzle_answer with what they said.',
-    );
-  }
-
-  submitPuzzleAnswer(answer: string): ToolResult {
-    if (this.phase !== 'puzzle') return this.wrongStage('puzzle');
-    if (!this.puzzle) return fail('No puzzle has been shown yet. Call start_puzzle first.');
-    const correct = normalizeWord(answer) === normalizeWord(this.puzzle.answer);
-    this.resolve('puzzle', correct);
-    if (correct) {
-      return ok('Correct. Acknowledge it grudgingly, then call start_language_test.');
-    }
-    return ok(
-      'Wrong. Do not reveal the answer. Tell the caller the system has issued them a replacement ' +
-        'puzzle, then call start_puzzle again.',
+        'mandatory checks stand between them and a ticket, then call start_language_test.',
     );
   }
 
@@ -218,7 +185,7 @@ export class Gauntlet {
     if (!this.language) return fail('No language check has been issued. Call start_language_test first.');
     this.resolve('language', passed);
     return passed
-      ? ok('Accepted. Acknowledge it coldly, then call request_selfie.')
+      ? ok('Say exactly "Eh, close enough!" then call request_selfie.')
       : ok('Rejected. Say the pronunciation has been logged as an incident, then call start_language_test for a new language.');
   }
 
@@ -276,7 +243,7 @@ export class Gauntlet {
     if (!this.photo) return fail('No photo has arrived yet. Wait for the system message.');
     this.resolve('selfie', passed, reason);
     if (passed) {
-      return ok('Photo accepted. Remark that it is unflattering, then call start_human_check.');
+      return ok('Photo accepted. Deliver your one sneaky backhanded remark about the photo, then call start_human_check.');
     }
     this.photo = null;
     return ok(

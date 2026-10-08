@@ -95,17 +95,6 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
     }
 
     switch (prompt.type) {
-      case 'show_puzzle': {
-        const long = prompt.display.length > 14;
-        return {
-          key: `puzzle:${prompt.display}`,
-          node: slip(
-            prompt.attempt > 1 ? `Word puzzle, replacement ${prompt.attempt - 1}` : 'Word puzzle',
-            el('p', { class: long ? 'puzzle puzzle-long' : 'puzzle' }, prompt.display),
-            el('p', { class: 'hint' }, 'Say the answer to the agent.'),
-          ),
-        };
-      }
       case 'show_language_prompt':
         return {
           key: `language:${prompt.language}`,

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { ServerMessage } from '../../shared/protocol.js';
-import { PUZZLES, countWords, extractNumber, normalizeWord } from './content.js';
+import { countWords, extractNumber } from './content.js';
 import { Gauntlet, type ToolResult } from './engine.js';
 import { Registry } from './sessions.js';
 
@@ -38,13 +38,6 @@ function lastOfType<T extends ServerMessage['type']>(events: ServerMessage[], ty
 }
 
 describe('content', () => {
-  it('scrambled puzzles are anagrams of their answers', () => {
-    for (const p of PUZZLES.filter((x) => !x.display.includes(' '))) {
-      const sort = (s: string) => normalizeWord(s).split('').sort().join('');
-      assert.equal(sort(p.display), sort(p.answer), p.display);
-    }
-  });
-
   it('counts words', () => {
     assert.equal(countWords('  one two   three '), 3);
     assert.equal(countWords(''), 0);
@@ -62,7 +55,7 @@ describe('gauntlet', () => {
   it('starts in pairing and refuses to skip stages', () => {
     const { g } = setup();
     assert.equal(g.phase, 'pairing');
-    const r = g.startPuzzle();
+    const r = g.startLanguage();
     assert.equal(r.ok, false);
     assert.equal(g.phase, 'pairing');
   });
@@ -72,30 +65,12 @@ describe('gauntlet', () => {
     assert.equal(g.pair('0000').ok, false);
     assert.equal(g.phase, 'pairing');
     expectOk(g.pair('4 2 7 1'));
-    assert.equal(g.phase, 'puzzle');
-  });
-
-  it('moves to a harder puzzle after a wrong answer and never reveals the answer', () => {
-    const { g, events } = setup();
-    g.pair('4271');
-    g.startPuzzle();
-    assert.equal(lastOfType(events, 'show_puzzle')?.display, PUZZLES[0]!.display);
-    const wrong = g.submitPuzzleAnswer('banana');
-    expectOk(wrong);
-    assert.ok(!JSON.stringify(wrong).includes(PUZZLES[0]!.answer));
-    assert.equal(g.phase, 'puzzle');
-    assert.equal(g.attempts.puzzle, 2);
-    g.startPuzzle();
-    assert.equal(lastOfType(events, 'show_puzzle')?.display, PUZZLES[1]!.display);
-    expectOk(g.submitPuzzleAnswer('Printer!'));
     assert.equal(g.phase, 'language');
   });
 
   it('picks a different language after a failed attempt', () => {
     const { g, events } = setup([0, 0]);
     g.pair('4271');
-    g.startPuzzle();
-    g.submitPuzzleAnswer(PUZZLES[0]!.answer);
     g.startLanguage();
     const first = lastOfType(events, 'show_language_prompt')!.language;
     g.reportLanguageResult(false);
@@ -105,11 +80,19 @@ describe('gauntlet', () => {
     assert.notEqual(first, second);
   });
 
+  it('reacts with "Eh, close enough!" on a passed attempt', () => {
+    const { g } = setup([0, 0]);
+    g.pair('4271');
+    g.startLanguage();
+    const result = g.reportLanguageResult(true);
+    expectOk(result);
+    assert.match(result.instruction, /eh, close enough/i);
+    assert.equal(g.phase, 'selfie');
+  });
+
   it('runs the selfie flow: token, photo, single use, expiry, escalation', () => {
     const { g, events, now } = setup();
     g.pair('4271');
-    g.startPuzzle();
-    g.submitPuzzleAnswer(PUZZLES[0]!.answer);
     g.startLanguage();
     g.reportLanguageResult(true);
     assert.equal(g.phase, 'selfie');
@@ -144,8 +127,6 @@ describe('gauntlet', () => {
   it('cannot judge a selfie before a photo arrives', () => {
     const { g } = setup();
     g.pair('4271');
-    g.startPuzzle();
-    g.submitPuzzleAnswer(PUZZLES[0]!.answer);
     g.startLanguage();
     g.reportLanguageResult(true);
     g.requestSelfie();
@@ -154,8 +135,6 @@ describe('gauntlet', () => {
 
   function toHumanCheck(g: Gauntlet) {
     g.pair('4271');
-    g.startPuzzle();
-    g.submitPuzzleAnswer(PUZZLES[0]!.answer);
     g.startLanguage();
     g.reportLanguageResult(true);
     g.requestSelfie();
@@ -224,11 +203,11 @@ describe('gauntlet', () => {
   it('abandons the session on hang-up from any stage', () => {
     const { g, events } = setup();
     g.pair('4271');
-    g.startPuzzle();
+    g.startLanguage();
     g.endCall('hangup');
     assert.equal(g.phase, 'abandoned');
     assert.equal(lastOfType(events, 'call_ended')?.reason, 'hangup');
-    assert.equal(g.startPuzzle().ok, false);
+    assert.equal(g.startLanguage().ok, false);
   });
 });
 
@@ -246,8 +225,6 @@ describe('registry', () => {
     const registry = new Registry((t) => `https://example.test/selfie.html?t=${t}`);
     const session = registry.create();
     session.gauntlet.pair(session.code);
-    session.gauntlet.startPuzzle();
-    session.gauntlet.submitPuzzleAnswer(PUZZLES[0]!.answer);
     session.gauntlet.startLanguage();
     session.gauntlet.reportLanguageResult(true);
     session.gauntlet.requestSelfie();

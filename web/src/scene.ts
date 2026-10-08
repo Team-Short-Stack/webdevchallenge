@@ -10,7 +10,7 @@ export interface SceneApi {
   dispose(): void;
 }
 
-type Kind = 'craters' | 'clouds' | 'earth' | 'bands';
+type Kind = 'craters' | 'earth' | 'bands';
 
 interface PlanetSpec {
   radius: number;
@@ -22,7 +22,6 @@ interface PlanetSpec {
 
 const SPECS: Record<Stage, PlanetSpec> = {
   pairing: { radius: 1.1, base: '#8d8a86', accents: ['#6f6c68', '#aaa6a0', '#5d5a57'], kind: 'craters' },
-  puzzle: { radius: 1.9, base: '#d8b878', accents: ['#e8cf98', '#c79d5a', '#f0dcae'], kind: 'clouds' },
   language: { radius: 2.0, base: '#2f6db5', accents: ['#3f8a52', '#8a7a4a', '#ffffff'], kind: 'earth' },
   selfie: { radius: 1.5, base: '#b5502e', accents: ['#8e3a1f', '#d27a4a', '#6e2c18'], kind: 'craters' },
   humanCheck: { radius: 3.4, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
@@ -76,14 +75,6 @@ function planetTexture(spec: PlanetSpec, seed: number): THREE.CanvasTexture {
       ctx.closePath();
       ctx.fill();
       y += bandHeight * (0.6 + rand() * 0.6);
-    }
-  } else if (spec.kind === 'clouds') {
-    for (let i = 0; i < 260; i++) {
-      ctx.globalAlpha = 0.08 + rand() * 0.16;
-      ctx.fillStyle = pick();
-      ctx.beginPath();
-      ctx.ellipse(rand() * w, rand() * h, 30 + rand() * 120, 6 + rand() * 22, 0, 0, Math.PI * 2);
-      ctx.fill();
     }
   } else if (spec.kind === 'earth') {
     for (let i = 0; i < 70; i++) {
