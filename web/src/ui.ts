@@ -19,11 +19,12 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 export interface UiApi {
+  showWelcome(): void;
   render(state: AppState): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
 }
 
-export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): UiApi {
+export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
   const ledNumber = el('span', { class: 'led', 'aria-hidden': 'true' }, '1');
   const signStage = el('strong', {}, 'Connecting');
   const signPlanet = el('span', {}, '');
@@ -41,6 +42,19 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
   const endHost = el('div', { class: 'end', hidden: '' });
 
   root.append(sign, promptHost, ticketsPanel, toastHost, endHost);
+
+  const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
+    el('div', { class: 'slip' },
+      el('h1', { id: 'welcome-title' }, 'welcome to universal help care.'),
+      el('p', { id: 'welcome-message', class: 'summary' }, "let's just make sure you are not a dalek."),
+      el('button', { class: 'button', type: 'button', autofocus: '' }, 'get started'),
+    ),
+  );
+  root.append(welcome);
+  welcome.querySelector('button')?.addEventListener('click', () => {
+    welcome.close();
+    handlers.onGetStarted();
+  });
 
   let promptKey = '';
   let countdownTimer: number | undefined;
@@ -163,6 +177,9 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
   }
 
   return {
+    showWelcome() {
+      if (!welcome.open) welcome.showModal();
+    },
     render(state) {
       // Sign
       const index = (STAGES as readonly string[]).indexOf(state.phase);

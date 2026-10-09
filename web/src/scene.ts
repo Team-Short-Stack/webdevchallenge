@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PLANETS, STAGES, STAGE_LABELS, type Phase, type Stage } from '../../shared/protocol.js';
 
 export interface SceneApi {
+  goToLolzitron(): void;
   setPhase(phase: Phase): void;
   /** A short visual reaction to a test result on that stage's planet. */
   flash(stage: Stage, passed: boolean): void;
@@ -140,7 +141,7 @@ interface PlanetNode {
   tint: number;
 }
 
-export function createScene(container: HTMLElement, labelRoot: HTMLElement): SceneApi | null {
+export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTardisClick: () => void): SceneApi | null {
   let renderer: THREE.WebGLRenderer;
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -295,8 +296,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
   tardisLabel.innerHTML = '<strong>Start here</strong>';
   labelRoot.appendChild(tardisLabel);
 
-  // Click (not drag) the TARDIS to jump the camera to Lolzitron, where the gauntlet begins.
-  // Click it again (or let a real stage change happen) to return to the wide overview.
+  // Click (not drag) the TARDIS to open the welcome dialog.
   const raycaster = new THREE.Raycaster();
   const pointerNdc = new THREE.Vector2();
   let pointerDownAt: { x: number; y: number } | null = null;
@@ -327,8 +327,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
       lookTarget.copy(OVERVIEW_TARGET);
       tardisZoomed = false;
     } else if (tardisHit(event.clientX, event.clientY)) {
-      frame('pairing');
-      tardisZoomed = true;
+      onTardisClick();
     }
   });
 
@@ -450,6 +449,10 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
   });
 
   return {
+    goToLolzitron() {
+      frame('pairing');
+      tardisZoomed = true;
+    },
     setPhase(phase) {
       tardisZoomed = false; // a real stage change always wins over a manual TARDIS click
       const idx = (STAGES as readonly string[]).indexOf(phase);

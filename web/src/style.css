@@ -338,6 +338,19 @@ body {
   border-left-color: var(--led);
 }
 
+.welcome {
+  width: min(480px, calc(100vw - 32px));
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+}
+
+.welcome::backdrop {
+  background: rgba(7, 11, 22, 0.72);
+  backdrop-filter: blur(4px);
+}
+
 .end {
   position: fixed;
   inset: 0;
