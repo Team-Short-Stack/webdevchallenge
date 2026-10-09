@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PLANETS, STAGES, STAGE_LABELS, type Phase, type Stage } from '../../shared/protocol.js';
 
 export interface SceneApi {
@@ -153,6 +154,16 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
 
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 600);
+
+  // Lets the caller drag to look around the scene. The automatic per-stage framing below still
+  // drives where the camera sits and points; this just layers a user-controlled orbit on top of it.
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.enablePan = false;
+  controls.minDistance = 4;
+  controls.maxDistance = 140;
+
   scene.add(new THREE.AmbientLight(0x3a4a78, 0.9));
   const sun = new THREE.DirectionalLight(0xfff0dc, 2.6);
   sun.position.set(-30, 14, 28);
@@ -234,6 +245,51 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
   let cardTarget = 0;
   let photoLoadId = 0;
 
+  // A floating TARDIS-style police box, just for fun, hovering above the planet row.
+  const tardis = new THREE.Group();
+  const tardisBody = new THREE.Mesh(
+    new THREE.BoxGeometry(1.1, 2.6, 1.1),
+    new THREE.MeshStandardMaterial({ color: 0x0a3b7a, emissive: 0x1a5bb8, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.2 }),
+  );
+  tardis.add(tardisBody);
+
+  const tardisRoof = new THREE.Mesh(
+    new THREE.BoxGeometry(1.25, 0.28, 1.25),
+    new THREE.MeshStandardMaterial({ color: 0x04173d, roughness: 0.6 }),
+  );
+  tardisRoof.position.y = 1.44;
+  tardis.add(tardisRoof);
+
+  const tardisLamp = new THREE.Mesh(
+    new THREE.SphereGeometry(0.14, 12, 12),
+    new THREE.MeshStandardMaterial({ color: 0xfff3c0, emissive: 0xffd966, emissiveIntensity: 1.2 }),
+  );
+  tardisLamp.position.y = 1.72;
+  tardis.add(tardisLamp);
+
+  const windowOffsets: [number, number][] = [
+    [-0.27, 0.6],
+    [0.27, 0.6],
+    [-0.27, 0.1],
+    [0.27, 0.1],
+  ];
+  for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+    const face = new THREE.Group();
+    face.rotation.y = angle;
+    for (const [x, y] of windowOffsets) {
+      const pane = new THREE.Mesh(
+        new THREE.BoxGeometry(0.32, 0.4, 0.03),
+        new THREE.MeshStandardMaterial({ color: 0x04173d, emissive: 0xbcd9ff, emissiveIntensity: 0.3 }),
+      );
+      pane.position.set(x, y, 0.56);
+      face.add(pane);
+    }
+    tardis.add(face);
+  }
+
+  tardis.position.set(2, 7, 2);
+  scene.add(tardis);
+
   // Camera state
   const cameraTarget = OVERVIEW_POSITION.clone();
   const lookTarget = OVERVIEW_TARGET.clone();
@@ -274,7 +330,8 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
     const k = 1 - Math.exp(-dt * (reduceMotion ? 8 : 2.2));
     camera.position.lerp(cameraTarget, k);
     look.lerp(lookTarget, k);
-    camera.lookAt(look);
+    controls.target.copy(look);
+    controls.update();
 
     stars.rotation.y += dt * 0.004;
 
@@ -336,6 +393,10 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
     card.visible = frameMat.opacity > 0.01;
     card.position.y = marsHome.y + 0.6 + Math.sin(t * 0.9) * (reduceMotion ? 0 : 0.12);
 
+    // TARDIS: gentle bob and spin
+    tardis.rotation.y += dt * 0.25;
+    tardis.position.y = 7 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
+
     renderer.render(scene, camera);
   });
 
@@ -347,7 +408,15 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
         currentIndex = idx;
         phaseIndex = idx;
         const stage = STAGES[idx];
-        if (stage) frame(stage);
+        // Stay on the wide overview shot while waiting to be paired, so every planet is
+        // visible before the caller is underway; start following the current planet from
+        // the next stage onward.
+        if (stage && stage !== 'pairing') {
+          frame(stage);
+        } else {
+          cameraTarget.copy(OVERVIEW_POSITION);
+          lookTarget.copy(OVERVIEW_TARGET);
+        }
       } else if (phase === 'done') {
         ended = true;
         phaseIndex = STAGES.length;
@@ -395,6 +464,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
     dispose() {
       renderer.setAnimationLoop(null);
       window.removeEventListener('resize', resize);
+      controls.dispose();
       renderer.dispose();
       renderer.domElement.remove();
       for (const p of planets) p.label.remove();
