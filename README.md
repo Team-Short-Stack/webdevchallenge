@@ -37,6 +37,7 @@ You need Node 22+, a Twilio account with a voice number, an OpenAI API key with 
 value comes from.
 
 ```bash
+nvm use                       # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
 cp .env.example .env          # then fill in OPENAI_API_KEY and the rest
 npm run build                 # builds the web app that the server serves

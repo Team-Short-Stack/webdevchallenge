@@ -290,6 +290,48 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
   tardis.position.set(2, 7, 2);
   scene.add(tardis);
 
+  const tardisLabel = document.createElement('div');
+  tardisLabel.className = 'planet-label tardis-label';
+  tardisLabel.innerHTML = '<strong>Start here</strong>';
+  labelRoot.appendChild(tardisLabel);
+
+  // Click (not drag) the TARDIS to jump the camera to Lolzitron, where the gauntlet begins.
+  // Click it again (or let a real stage change happen) to return to the wide overview.
+  const raycaster = new THREE.Raycaster();
+  const pointerNdc = new THREE.Vector2();
+  let pointerDownAt: { x: number; y: number } | null = null;
+  let tardisZoomed = false;
+
+  function tardisHit(clientX: number, clientY: number): boolean {
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointerNdc, camera);
+    return raycaster.intersectObject(tardis, true).length > 0;
+  }
+
+  renderer.domElement.addEventListener('pointerdown', (event) => {
+    pointerDownAt = { x: event.clientX, y: event.clientY };
+  });
+  renderer.domElement.addEventListener('pointermove', (event) => {
+    if (pointerDownAt) return; // mid-drag; leave the cursor to OrbitControls
+    renderer.domElement.style.cursor = tardisHit(event.clientX, event.clientY) ? 'pointer' : 'auto';
+  });
+  renderer.domElement.addEventListener('pointerup', (event) => {
+    const moved = pointerDownAt ? Math.hypot(event.clientX - pointerDownAt.x, event.clientY - pointerDownAt.y) : Infinity;
+    pointerDownAt = null;
+    if (moved >= 6) return; // was a drag, not a click
+    if (tardisZoomed) {
+      // The TARDIS is out of view once zoomed into Lolzitron, so any click backs out again.
+      cameraTarget.copy(OVERVIEW_POSITION);
+      lookTarget.copy(OVERVIEW_TARGET);
+      tardisZoomed = false;
+    } else if (tardisHit(event.clientX, event.clientY)) {
+      frame('pairing');
+      tardisZoomed = true;
+    }
+  });
+
   // Camera state
   const cameraTarget = OVERVIEW_POSITION.clone();
   const lookTarget = OVERVIEW_TARGET.clone();
@@ -397,11 +439,19 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
     tardis.rotation.y += dt * 0.25;
     tardis.position.y = 7 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
 
+    tmp.copy(tardis.position);
+    tmp.y += 1.9;
+    tmp.project(camera);
+    const tardisVisible = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15;
+    tardisLabel.style.opacity = tardisVisible ? '1' : '0';
+    tardisLabel.style.transform = `translate(-50%, -100%) translate(${((tmp.x + 1) / 2) * renderer.domElement.clientWidth}px, ${((1 - tmp.y) / 2) * renderer.domElement.clientHeight}px)`;
+
     renderer.render(scene, camera);
   });
 
   return {
     setPhase(phase) {
+      tardisZoomed = false; // a real stage change always wins over a manual TARDIS click
       const idx = (STAGES as readonly string[]).indexOf(phase);
       if (idx >= 0) {
         ended = false;
@@ -468,6 +518,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement): Sce
       renderer.dispose();
       renderer.domElement.remove();
       for (const p of planets) p.label.remove();
+      tardisLabel.remove();
     },
   };
 }

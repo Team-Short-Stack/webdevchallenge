@@ -73,6 +73,11 @@ body {
   color: var(--pass);
 }
 
+.tardis-label strong {
+  color: var(--led);
+  font-size: 0.95rem;
+}
+
 /* The "Now serving" sign */
 .sign {
   position: fixed;

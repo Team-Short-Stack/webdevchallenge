@@ -68,6 +68,7 @@ debug the webhook.
 ## 4. Run it
 
 ```bash
+nvm use                  # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
 cp .env.example .env     # if you have not already; fill in the values above
 npm run build
