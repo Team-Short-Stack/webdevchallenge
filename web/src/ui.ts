@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { PLANETS, STAGES, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
+import { STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
 import type { AppState } from './state.js';
 
 type Child = Node | string | null | undefined | false;
@@ -20,28 +20,22 @@ function el<K extends keyof HTMLElementTagNameMap>(
 
 export interface UiApi {
   showWelcome(): void;
-  render(state: AppState): void;
+  render(state: AppState, focusedStage: Stage | null): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
 }
 
 export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
-  const ledNumber = el('span', { class: 'led', 'aria-hidden': 'true' }, '1');
-  const signStage = el('strong', {}, 'Connecting');
-  const signPlanet = el('span', {}, '');
-  const sign = el(
-    'header',
-    { class: 'sign' },
-    el('p', { class: 'sign-label' }, 'Now serving'),
-    el('div', { class: 'sign-row' }, ledNumber, el('div', { class: 'sign-text' }, signStage, signPlanet)),
-  );
-
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
   const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
+  const ticketsMenu = el('details', { class: 'tickets-menu' },
+    el('summary', {}, 'Tickets'),
+    ticketsPanel,
+  );
   const toastHost = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
   const endHost = el('div', { class: 'end', hidden: '' });
 
-  root.append(sign, promptHost, ticketsPanel, toastHost, endHost);
+  root.append(promptHost, ticketsMenu, toastHost, endHost);
 
   const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
     el('div', { class: 'slip' },
@@ -180,22 +174,10 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
     showWelcome() {
       if (!welcome.open) welcome.showModal();
     },
-    render(state) {
-      // Sign
-      const index = (STAGES as readonly string[]).indexOf(state.phase);
-      if (index >= 0) {
-        const stage = STAGES[index] as Stage;
-        ledNumber.textContent = String(index + 1);
-        signStage.textContent = STAGE_LABELS[stage];
-        signPlanet.textContent = `${PLANETS[stage]}${state.attempts[stage] > 1 ? `, attempt ${state.attempts[stage]}` : ''}`;
-      } else {
-        ledNumber.textContent = '--';
-        signStage.textContent = state.phase === 'done' ? 'Served' : 'Call ended';
-        signPlanet.textContent = state.phase === 'done' ? 'All planets visited' : 'Nobody was served';
-      }
-
+    render(state, focusedStage) {
       // Prompt (rebuilt only when it changes, so the QR code and countdown don't flicker)
       const next = buildPrompt(state);
+      promptHost.hidden = state.phase === 'pairing' && focusedStage !== 'pairing';
       if (next.key !== promptKey) {
         promptKey = next.key;
         if (!next.key.startsWith('qr:')) window.clearInterval(countdownTimer);

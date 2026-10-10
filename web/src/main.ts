@@ -23,7 +23,7 @@ const scene = createScene(sceneRoot, labelRoot, () => {
   allonsy.pause();
   playCue(whirr);
   ui.showWelcome();
-});
+}, () => render());
 if (!scene) {
   document.body.classList.add('no-webgl');
   sceneRoot.removeAttribute('aria-hidden');
@@ -38,7 +38,7 @@ const ui = createUi(appRoot, {
     scene?.goToLolzitron();
   },
 });
-const render = () => ui.render(state);
+const render = () => ui.render(state, scene?.focusedStage ?? null);
 
 let socket: WebSocket | null = null;
 let retries = 0;

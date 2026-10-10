@@ -3,6 +3,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { PLANETS, STAGES, STAGE_LABELS, type Phase, type Stage } from '../../shared/protocol.js';
 
 export interface SceneApi {
+  readonly focusedStage: Stage | null;
   goToLolzitron(): void;
   setPhase(phase: Phase): void;
   /** A short visual reaction to a test result on that stage's planet. */
@@ -12,7 +13,7 @@ export interface SceneApi {
   dispose(): void;
 }
 
-type Kind = 'craters' | 'earth' | 'bands';
+type Kind = 'craters' | 'earth' | 'bands' | 'knit';
 
 interface PlanetSpec {
   radius: number;
@@ -23,15 +24,15 @@ interface PlanetSpec {
 }
 
 const SPECS: Record<Stage, PlanetSpec> = {
-  pairing: { radius: 1.1, base: '#8d8a86', accents: ['#6f6c68', '#aaa6a0', '#5d5a57'], kind: 'craters' },
-  language: { radius: 2.0, base: '#2f6db5', accents: ['#3f8a52', '#8a7a4a', '#ffffff'], kind: 'earth' },
-  selfie: { radius: 1.5, base: '#b5502e', accents: ['#8e3a1f', '#d27a4a', '#6e2c18'], kind: 'craters' },
-  humanCheck: { radius: 0.7, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
-  ticket: { radius: 2.8, base: '#dcc58f', accents: ['#c3a96f', '#efdcae', '#b09257'], kind: 'bands', ring: true },
+  pairing: { radius: 1.9, base: '#8d8a86', accents: ['#6f6c68', '#aaa6a0', '#5d5a57'], kind: 'craters' },
+  language: { radius: 3.45, base: '#2f6db5', accents: ['#3f8a52', '#8a7a4a', '#ffffff'], kind: 'earth' },
+  selfie: { radius: 2.6, base: '#b5502e', accents: ['#8e3a1f', '#d27a4a', '#6e2c18'], kind: 'craters' },
+  humanCheck: { radius: 1.4, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
+  ticket: { radius: 4.8, base: '#dcc58f', accents: ['#c3a96f', '#efdcae', '#b09257'], kind: 'bands', ring: true },
 };
 
 const POSITIONS: Record<Stage, THREE.Vector3> = Object.fromEntries(
-  STAGES.map((stage, i) => [stage, new THREE.Vector3(i * 10 - 25, Math.sin(i * 1.4) * 2.2, -Math.cos(i * 0.9) * 4)]),
+  STAGES.map((stage, i) => [stage, new THREE.Vector3(i * 13 - 26, Math.sin(i * 1.4) * 3.0, -Math.cos(i * 0.9) * 4)]),
 ) as Record<Stage, THREE.Vector3>;
 
 const LED_RED = new THREE.Color('#ff4a3d');
@@ -64,7 +65,23 @@ function planetTexture(spec: PlanetSpec, seed: number): THREE.CanvasTexture {
   ctx.fillStyle = spec.base;
   ctx.fillRect(0, 0, w, h);
 
-  if (spec.kind === 'bands') {
+  if (spec.kind === 'knit') {
+    for (let y = 0; y < h; y += 64) {
+      ctx.fillStyle = spec.accents[(y / 64) % spec.accents.length] ?? spec.base;
+      ctx.fillRect(0, y, w, 64);
+    }
+    ctx.lineWidth = 1.5;
+    for (let y = 0; y < h; y += 8) {
+      for (let x = 0; x < w; x += 8) {
+        ctx.strokeStyle = (x + y) % 16 === 0 ? 'rgba(255,255,255,0.22)' : 'rgba(40,25,20,0.18)';
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + 4, y + 6);
+        ctx.lineTo(x + 8, y);
+        ctx.stroke();
+      }
+    }
+  } else if (spec.kind === 'bands') {
     let y = 0;
     while (y < h) {
       const bandHeight = 10 + rand() * 46;
@@ -141,7 +158,7 @@ interface PlanetNode {
   tint: number;
 }
 
-export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTardisClick: () => void): SceneApi | null {
+export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTardisClick: () => void, onViewChange: () => void): SceneApi | null {
   let renderer: THREE.WebGLRenderer;
   try {
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -199,6 +216,54 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     mesh.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.08;
     scene.add(mesh);
 
+    if (stage === 'humanCheck') {
+      const radius = spec.radius * 1.06;
+      const yarn = new THREE.MeshStandardMaterial({
+        map: planetTexture({ radius, base: '#ffe36e', accents: ['#ffe36e', '#ff6aa2', '#54e0c1', '#a48bff'], kind: 'knit' }, 81),
+        roughness: 1,
+        side: THREE.DoubleSide,
+      });
+      const cardigan = new THREE.Mesh(
+        new THREE.SphereGeometry(radius, 64, 40, Math.PI / 2 + 0.22, Math.PI * 2 - 0.44, 0.6, 2.15),
+        yarn,
+      );
+      mesh.add(cardigan);
+
+      for (const side of [-1, 1]) {
+        const sleeve = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.35, 32, 24), yarn);
+        sleeve.scale.set(0.8, 1.65, 0.85);
+        sleeve.position.set(side * radius * 0.96, -radius * 0.12, 0);
+        sleeve.rotation.z = side * 0.22;
+        mesh.add(sleeve);
+      }
+
+      const trim = new THREE.MeshStandardMaterial({ color: '#e5cfac', roughness: 1 });
+      for (const side of [-1, 1]) {
+        const edge = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.055, 8, 64, 2.15), trim);
+        edge.rotation.set(0, Math.PI / 2 - side * 0.22, Math.PI / 2 - 2.75);
+        mesh.add(edge);
+      }
+      for (let i = 0; i < 4; i++) {
+        const y = radius * (0.35 - i * 0.25);
+        const button = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.055, 12, 8),
+          new THREE.MeshStandardMaterial({ color: '#523d31', roughness: 0.7 }));
+        button.position.set(radius * 0.25, y, Math.sqrt(radius * radius - y * y - (radius * 0.25) ** 2));
+        mesh.add(button);
+      }
+
+      const rand = mulberry32(82);
+      const fibers: number[] = [];
+      for (let i = 0; i < 2200; i++) {
+        const phi = Math.PI / 2 + 0.22 + rand() * (Math.PI * 2 - 0.44);
+        const theta = 0.6 + rand() * 2.15;
+        const direction = new THREE.Vector3(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta));
+        fibers.push(...direction.clone().multiplyScalar(radius).toArray(), ...direction.multiplyScalar(radius + 0.02 + rand() * 0.035).toArray());
+      }
+      const fuzz = new THREE.BufferGeometry();
+      fuzz.setAttribute('position', new THREE.Float32BufferAttribute(fibers, 3));
+      mesh.add(new THREE.LineSegments(fuzz, new THREE.LineBasicMaterial({ color: '#e5cfac', transparent: true, opacity: 0.35 })));
+    }
+
     if (spec.ring) {
       for (const [inner, outer, opacity, color] of [
         [1.45, 1.75, 0.7, '#d9c690'],
@@ -239,7 +304,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   const cardPhoto = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0 }));
   cardPhoto.position.z = 0.01;
   card.add(cardFrame, cardPhoto);
-  card.position.set(marsHome.x + 3.0, marsHome.y + 0.5, marsHome.z + 1.2);
+  card.position.set(marsHome.x + SPECS.selfie.radius + 2.0, marsHome.y + 0.5, marsHome.z + 1.2);
   card.rotation.y = -0.35;
   card.rotation.z = 0.05;
   scene.add(card);
@@ -288,7 +353,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     tardis.add(face);
   }
 
-  tardis.position.set(2, 7, 2);
+  tardis.position.set(7, 11, 2);
   scene.add(tardis);
 
   const tardisLabel = document.createElement('div');
@@ -296,18 +361,21 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   tardisLabel.innerHTML = '<strong>Start here</strong>';
   labelRoot.appendChild(tardisLabel);
 
-  // Click (not drag) the TARDIS to open the welcome dialog.
+  // Click (not drag) to explore a planet or open the TARDIS welcome dialog.
   const raycaster = new THREE.Raycaster();
   const pointerNdc = new THREE.Vector2();
   let pointerDownAt: { x: number; y: number } | null = null;
-  let tardisZoomed = false;
+  let focusedStage: Stage | null = null;
 
-  function tardisHit(clientX: number, clientY: number): boolean {
+  function sceneHit(clientX: number, clientY: number): Stage | 'tardis' | null {
     const rect = renderer.domElement.getBoundingClientRect();
     pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointerNdc, camera);
-    return raycaster.intersectObject(tardis, true).length > 0;
+    const hit = raycaster.intersectObjects([tardis, ...planets.map((planet) => planet.mesh)], true)[0];
+    if (!hit) return null;
+    const planet = planets.find((planet) => planet.mesh === hit.object || planet.mesh === hit.object.parent);
+    return planet?.stage ?? 'tardis';
   }
 
   renderer.domElement.addEventListener('pointerdown', (event) => {
@@ -315,19 +383,24 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   });
   renderer.domElement.addEventListener('pointermove', (event) => {
     if (pointerDownAt) return; // mid-drag; leave the cursor to OrbitControls
-    renderer.domElement.style.cursor = tardisHit(event.clientX, event.clientY) ? 'pointer' : 'auto';
+    renderer.domElement.style.cursor = sceneHit(event.clientX, event.clientY) ? 'pointer' : 'auto';
   });
   renderer.domElement.addEventListener('pointerup', (event) => {
     const moved = pointerDownAt ? Math.hypot(event.clientX - pointerDownAt.x, event.clientY - pointerDownAt.y) : Infinity;
     pointerDownAt = null;
     if (moved >= 6) return; // was a drag, not a click
-    if (tardisZoomed) {
-      // The TARDIS is out of view once zoomed into Lolzitron, so any click backs out again.
+    const hit = sceneHit(event.clientX, event.clientY);
+    if (hit === 'tardis') {
+      onTardisClick();
+    } else if (hit && hit !== focusedStage) {
+      frame(hit);
+      focusedStage = hit;
+      onViewChange();
+    } else if (focusedStage !== null) {
       cameraTarget.copy(OVERVIEW_POSITION);
       lookTarget.copy(OVERVIEW_TARGET);
-      tardisZoomed = false;
-    } else if (tardisHit(event.clientX, event.clientY)) {
-      onTardisClick();
+      focusedStage = null;
+      onViewChange();
     }
   });
 
@@ -353,9 +426,10 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     camera.aspect = w / h;
-    // Shift the picture left and up so the focused planet sits in the free space between the
-    // ticket panel and the prompt slip instead of dead centre.
-    camera.setViewOffset(w, h, w > 960 ? 160 : 0, Math.round(h * 0.06), w, h);
+    OVERVIEW_POSITION.z = Math.max(58, 40 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) + 6);
+    if (focusedStage === null && (phaseIndex <= 0 || ended)) cameraTarget.copy(OVERVIEW_POSITION);
+    // Leave room below the planets for the prompt; the tickets menu overlays the scene.
+    camera.setViewOffset(w, h, 0, Math.round(h * 0.06), w, h);
     camera.updateProjectionMatrix();
   };
   resize();
@@ -436,7 +510,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
     // TARDIS: gentle bob and spin
     tardis.rotation.y += dt * 0.25;
-    tardis.position.y = 7 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
+    tardis.position.y = 11 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
 
     tmp.copy(tardis.position);
     tmp.y += 1.9;
@@ -449,12 +523,16 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   });
 
   return {
+    get focusedStage() {
+      return focusedStage;
+    },
     goToLolzitron() {
       frame('pairing');
-      tardisZoomed = true;
+      focusedStage = 'pairing';
+      onViewChange();
     },
     setPhase(phase) {
-      tardisZoomed = false; // a real stage change always wins over a manual TARDIS click
+      focusedStage = null; // A call stage change returns the camera to the active step.
       const idx = (STAGES as readonly string[]).indexOf(phase);
       if (idx >= 0) {
         ended = false;
