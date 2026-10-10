@@ -11,7 +11,7 @@ export interface AppState {
   photo: string | null;
   tickets: Ticket[];
   /** Set once the call is over. */
-  ended: null | 'completed' | 'hangup' | 'timeout';
+  ended: null | 'completed' | 'hangup' | 'timeout' | 'disconnected';
   /** The ticket this caller filed, if any. */
   myTicket: Ticket | null;
   phoneNumber: string | null;

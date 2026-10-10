@@ -80,13 +80,13 @@ describe('gauntlet', () => {
     assert.notEqual(first, second);
   });
 
-  it('reacts with "Eh, close enough!" on a passed attempt', () => {
+  it('reacts with "i see you, T-bone, la araña discoteca" on a passed attempt', () => {
     const { g } = setup([0, 0]);
     g.pair('4271');
     g.startLanguage();
     const result = g.reportLanguageResult(true);
     expectOk(result);
-    assert.match(result.instruction, /eh, close enough/i);
+    assert.match(result.instruction, /i see you, T-bone, la araña discoteca/i);
     assert.equal(g.phase, 'selfie');
   });
 
@@ -145,7 +145,7 @@ describe('gauntlet', () => {
   }
 
   it('passes a fashion trivia question when the spoken number matches', () => {
-    // rng calls in order: language pick (0), human-check pick (0 -> index 0 -> sunflower-pants, expected 2)
+    // Spanish is fixed; the first random pick selects sunflower-pants, expected 2.
     const { g, events } = setup([0, 0]);
     toHumanCheck(g);
     g.startHumanCheck();
@@ -157,7 +157,7 @@ describe('gauntlet', () => {
   });
 
   it('fails on the wrong number, then offers a different question', () => {
-    // language pick (0), human-check pick (0 -> sunflower-pants, expected 2)
+    // The first random pick selects sunflower-pants, expected 2.
     const { g, events } = setup([0, 0, 0]);
     toHumanCheck(g);
     g.startHumanCheck();
@@ -171,33 +171,35 @@ describe('gauntlet', () => {
 
   it('reads a digit answer the same as a spelled-out one', () => {
     // human-check pick 0.7 -> index 4 -> cheetah, expected 5
-    const digit = setup([0, 0.7]);
+    const digit = setup([0.7]);
     toHumanCheck(digit.g);
     digit.g.startHumanCheck();
     expectOk(digit.g.submitHumanCheck('episode 5'));
     assert.equal(digit.g.phase, 'ticket');
 
-    const spelled = setup([0, 0.7]);
+    const spelled = setup([0.7]);
     toHumanCheck(spelled.g);
     spelled.g.startHumanCheck();
     expectOk(spelled.g.submitHumanCheck('episode five'));
     assert.equal(spelled.g.phase, 'ticket');
   });
 
-  it('files a ticket, finishes, and reports completion once', () => {
+  it('never files a ticket and reports the final disconnect once', () => {
     const { g, events } = setup([0, 0]);
     toHumanCheck(g);
     g.startHumanCheck();
     g.submitHumanCheck('season two');
     const r = g.createTicket('Printer on fire', 'It is literally on fire');
-    expectOk(r);
-    assert.equal(g.phase, 'done');
-    assert.equal(lastOfType(events, 'ticket_created')?.ticket.id, 'UHC-0001');
-    g.endCall('hangup');
-    g.endCall('hangup');
+    // Reaching Opus 1 leaves the caller on hold; it never creates a ticket.
+    assert.equal(r.ok, false);
+    assert.equal(g.phase, 'ticket');
+    assert.equal(lastOfType(events, 'ticket_created'), undefined);
+    // Duplicate hang-up notifications must produce only one failure message.
+    g.endCall('disconnected');
+    g.endCall('disconnected');
     const ended = events.filter((e) => e.type === 'call_ended');
     assert.equal(ended.length, 1);
-    assert.equal((ended[0] as { reason: string }).reason, 'completed');
+    assert.equal((ended[0] as { reason: string }).reason, 'disconnected');
   });
 
   it('abandons the session on hang-up from any stage', () => {

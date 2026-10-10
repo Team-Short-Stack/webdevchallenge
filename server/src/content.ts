@@ -42,11 +42,11 @@ export interface LanguageCheck {
 }
 
 export const LANGUAGES: LanguageCheck[] = [
-  { language: 'Spanish', phrase: 'Mi impresora está en llamas', meaning: 'My printer is on fire' },
-  { language: 'French', phrase: "Mon imprimante est en feu", meaning: 'My printer is on fire' },
-  { language: 'German', phrase: 'Mein Drucker brennt', meaning: 'My printer is on fire' },
-  { language: 'Italian', phrase: 'La mia stampante è in fiamme', meaning: 'My printer is on fire' },
-  { language: 'Portuguese', phrase: 'A minha impressora está a arder', meaning: 'My printer is on fire' },
+  { language: 'Spanish', phrase: 'adonde esta la biblioteca', meaning: 'Where is the library?' },
+  { language: 'French', phrase: 'Où est la bibliothèque ?', meaning: 'Where is the library?' },
+  { language: 'German', phrase: 'Wo ist die Bibliothek?', meaning: 'Where is the library?' },
+  { language: 'Italian', phrase: "Dov'è la biblioteca?", meaning: 'Where is the library?' },
+  { language: 'Portuguese', phrase: 'Onde fica a biblioteca?', meaning: 'Where is the library?' },
 ];
 
 /** Ordered by absurdity. Each failed selfie escalates to the next. */
@@ -152,7 +152,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'A photo is on your screen. Which episode featured Jason\'s "free people read freely" sweater?',
+        prompt: 'In which episode of season 2 did Jason wear his very smart "free people read freely" sweater?',
         judge: 'number',
         expected: 12,
         imageUrl: '/fashion/read-freely.png',

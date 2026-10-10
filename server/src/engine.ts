@@ -161,7 +161,7 @@ export class Gauntlet {
     if (this.phase !== 'language') return this.wrongStage('language');
     const firstTry = this.attempts.language === 1;
     const choice = firstTry
-      ? pickOne(LANGUAGES, this.rng)
+      ? LANGUAGES.find((language) => language.language === 'Spanish')!
       : pickOne(
           LANGUAGES.filter((l) => l.language !== this.language?.language),
           this.rng,
@@ -185,7 +185,7 @@ export class Gauntlet {
     if (!this.language) return fail('No language check has been issued. Call start_language_test first.');
     this.resolve('language', passed);
     return passed
-      ? ok('Say exactly "Eh, close enough!" then call request_selfie.')
+      ? ok('Say exactly "i see you, T-bone, la araña discoteca" then call request_selfie.')
       : ok('Rejected. Say the pronunciation has been logged as an incident, then call start_language_test for a new language.');
   }
 
@@ -268,7 +268,8 @@ export class Gauntlet {
       imageUrl: check.imageUrl,
     });
     return ok(
-      `Give the caller this task: "${check.prompt}" ` +
+      'Introduce Lengsdwarf by saying "Welcome to Lengsdwarf. Snappy cardigan. Shame about the paperwork." Then ' +
+      `give the caller this task: "${check.prompt}" ` +
         'There is a photo on their screen; do not describe it or hint at the answer. ' +
         'Then call submit_human_check with exactly what you heard. Leave verdict out.',
     );
@@ -287,7 +288,7 @@ export class Gauntlet {
     }
     this.resolve('humanCheck', passed, passed ? undefined : 'Inconclusive');
     return passed
-      ? ok('Humanity confirmed, reluctantly. Ask the caller to describe their problem, then call create_ticket.')
+      ? ok('You have reached Opus 1. Say exactly "Please hold." and then call start_final_hold. Do not ask for a problem description or create a ticket.')
       : ok(
           'The result is inconclusive. Do not explain why. Tell the caller the system will try a different ' +
             'verification, then call start_human_check again.',
@@ -298,20 +299,13 @@ export class Gauntlet {
 
   createTicket(summary: string, details: string): ToolResult {
     if (this.phase !== 'ticket') return this.wrongStage('ticket');
-    const ticket = this.opts.saveTicket({ summary, details });
-    this.opts.emit({ type: 'ticket_created', ticket });
-    this.actor.send({ type: 'PASSED' });
-    return ok(
-      `Ticket ${ticket.id} has been filed. Read the ticket number to the caller, tell them someone may ` +
-        'respond eventually, thank them for their patience, and say goodbye. Keep it short.',
-      { ticketId: ticket.id },
-    );
+    return fail('Ticket filing is unavailable. Say "Please hold." and call start_final_hold.');
   }
 
   // ----------------------------------------------------------------- end
 
   /** Called when the call is over for any reason. Safe to call more than once. */
-  endCall(reason: 'hangup' | 'timeout' = 'hangup') {
+  endCall(reason: 'hangup' | 'timeout' | 'disconnected' = 'hangup') {
     if (this.ended) return;
     this.ended = true;
     const finishedNormally = this.phase === 'done';

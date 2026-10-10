@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import fastifyFormBody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
@@ -23,6 +24,10 @@ const registry = new Registry(
 );
 const gate = new StreamGate();
 let activeCalls = 0;
+const finalHolds = new Map<string, { session: CallSession; callSid: string; timer: NodeJS.Timeout }>();
+app.addHook('onClose', async () => {
+  for (const hold of finalHolds.values()) clearTimeout(hold.timer);
+});
 
 await app.register(fastifyFormBody);
 await app.register(fastifyWebsocket, { options: { maxPayload: 64 * 1024 } });
@@ -43,7 +48,7 @@ app.get('/api/config', async () => ({ phoneNumber: config.phoneDisplayNumber ?? 
 
 function rejectCall(reply: import('fastify').FastifyReply, message: string) {
   const vr = new twilio.twiml.VoiceResponse();
-  vr.say({ voice: 'Polly.Joanna-Neural' }, message);
+  vr.say({ voice: 'Polly.Brian-Neural', language: 'en-GB' }, message);
   vr.hangup();
   return reply.type('text/xml').send(vr.toString());
 }
@@ -78,13 +83,44 @@ app.post('/incoming-call', async (request, reply) => {
 
   const vr = new twilio.twiml.VoiceResponse();
   vr.say(
-    { voice: 'Polly.Joanna-Neural' },
-    'Thank you for calling the Help Desk. Your call is important to us. Please find the four digit code on your screen, and say it when prompted.',
+    { voice: 'Polly.Brian-Neural', language: 'en-GB' },
+    'Thank you for calling Universal Help Care. Your call is important to us. Please find the letter code on your screen, and spell it out when prompted.',
   );
   const connect = vr.connect();
-  connect.stream({ url: `wss://${new URL(base).host}/media-stream` });
+  const token = randomUUID();
+  connect.stream({ url: `wss://${new URL(base).host}/media-stream` }).parameter({ name: 'endingToken', value: token });
+  vr.redirect({ method: 'POST' }, `${base}/final-hold?t=${token}`);
   return reply.type('text/xml').send(vr.toString());
 });
+
+for (const route of ['/final-hold', '/call-failed']) {
+  app.post(route, async (request, reply) => {
+    const params = (request.body ?? {}) as Record<string, string>;
+    const base = publicBase(request.headers.host, request.headers['x-forwarded-proto'] as string | undefined);
+    const signature = request.headers['x-twilio-signature'];
+    if (config.twilioAuthToken && (typeof signature !== 'string' ||
+      !twilio.validateRequest(config.twilioAuthToken, signature, `${base}${request.url}`, params))) {
+      return reply.code(403).send('Forbidden');
+    }
+    const token = (request.query as { t?: string }).t ?? '';
+    const hold = finalHolds.get(token);
+    const vr = new twilio.twiml.VoiceResponse();
+    if (hold && hold.callSid === params.CallSid) {
+      if (route === '/final-hold') {
+        vr.play(`${base}/audio/opus-1-clip.mp3`);
+        vr.redirect({ method: 'POST' }, `${base}/call-failed?t=${token}`);
+      } else {
+        clearTimeout(hold.timer);
+        finalHolds.delete(token);
+        hold.session.gauntlet.endCall('disconnected');
+        vr.hangup();
+      }
+    } else {
+      vr.hangup();
+    }
+    return reply.type('text/xml').send(vr.toString());
+  });
+}
 
 await app.register(async (scope) => {
   scope.get('/media-stream', { websocket: true }, (socket, request) => {
@@ -98,6 +134,14 @@ await app.register(async (scope) => {
       config,
       registry,
       log: request.log,
+      onFinalHold(session, token, callSid) {
+        const timer = setTimeout(() => {
+          finalHolds.delete(token);
+          session.gauntlet.endCall('disconnected');
+        }, 90_000);
+        timer.unref();
+        finalHolds.set(token, { session, callSid, timer });
+      },
       onCallEnd: () => {
         activeCalls = Math.max(0, activeCalls - 1);
       },

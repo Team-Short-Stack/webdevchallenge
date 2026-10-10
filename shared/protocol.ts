@@ -57,7 +57,7 @@ export type ServerMessage =
   | { type: 'selfie_received'; photo: string }
   | { type: 'test_result'; stage: Stage; passed: boolean; note?: string }
   | { type: 'ticket_created'; ticket: Ticket; /** True only on the laptop of the caller who filed it. */ mine?: boolean }
-  | { type: 'call_ended'; reason: 'completed' | 'hangup' | 'timeout' }
+  | { type: 'call_ended'; reason: 'completed' | 'hangup' | 'timeout' | 'disconnected' }
   | { type: 'error'; message: string };
 
 /** Laptop -> server. */

@@ -90,7 +90,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
     if (state.phase === 'ticket') {
       return {
         key: 'ticket',
-        node: slip('File your ticket', el('p', { class: 'hint' }, 'Tell the agent what is wrong. Be specific; it will not help.')),
+        node: slip('Please hold', el('p', { class: 'hint' }, 'Your call is important to us.')),
       };
     }
     if (state.phase === 'selfie' && state.photo) {
@@ -200,9 +200,9 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
           el(
             'div',
             { class: 'slip' },
-            el('h1', {}, state.ended === 'timeout' ? 'Your time is up' : 'The call ended'),
-            el('p', { class: 'hint' }, 'You were not served. This is normal.'),
-            el('button', { class: 'button', type: 'button' }, 'Start a new call'),
+            el('h1', {}, state.ended === 'disconnected' ? 'Call failed' : state.ended === 'timeout' ? 'Your time is up' : 'The call ended'),
+            el('p', { class: 'hint' }, state.ended === 'disconnected' ? 'Unexpectedly disconnected. Your ticket was not filed. Please call again.' : 'You were not served. This is normal.'),
+            el('button', { class: 'button', type: 'button' }, state.ended === 'disconnected' ? 'Call again' : 'Start a new call'),
           ),
         );
         endHost.querySelector('button')?.addEventListener('click', handlers.onNewCall);
