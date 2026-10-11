@@ -53,7 +53,7 @@ function rejectCall(reply: import('fastify').FastifyReply, message: string) {
   return reply.type('text/xml').send(vr.toString());
 }
 
-app.post('/incoming-call', async (request, reply) => {
+if (config.voiceTransport === 'legacy') app.post('/incoming-call', async (request, reply) => {
   const params = (request.body ?? {}) as Record<string, string>;
   const base = publicBase(request.headers.host, request.headers['x-forwarded-proto'] as string | undefined);
 
@@ -123,30 +123,32 @@ for (const route of ['/final-hold', '/call-failed']) {
 }
 
 await app.register(async (scope) => {
-  scope.get('/media-stream', { websocket: true }, (socket, request) => {
-    if (!gate.consume()) {
-      request.log.warn('rejected a media stream with no matching incoming call');
-      socket.close(1008, 'unexpected stream');
-      return;
-    }
-    activeCalls += 1;
-    void handlePhoneCall(socket, {
-      config,
-      registry,
-      log: request.log,
-      onFinalHold(session, token, callSid) {
-        const timer = setTimeout(() => {
-          finalHolds.delete(token);
-          session.gauntlet.endCall('disconnected');
-        }, 90_000);
-        timer.unref();
-        finalHolds.set(token, { session, callSid, timer });
-      },
-      onCallEnd: () => {
-        activeCalls = Math.max(0, activeCalls - 1);
-      },
+  if (config.voiceTransport === 'legacy') {
+    scope.get('/media-stream', { websocket: true }, (socket, request) => {
+      if (!gate.consume()) {
+        request.log.warn('rejected a media stream with no matching incoming call');
+        socket.close(1008, 'unexpected stream');
+        return;
+      }
+      activeCalls += 1;
+      void handlePhoneCall(socket, {
+        config,
+        registry,
+        log: request.log,
+        onFinalHold(session, token, callSid) {
+          const timer = setTimeout(() => {
+            finalHolds.delete(token);
+            session.gauntlet.endCall('disconnected');
+          }, 90_000);
+          timer.unref();
+          finalHolds.set(token, { session, callSid, timer });
+        },
+        onCallEnd: () => {
+          activeCalls = Math.max(0, activeCalls - 1);
+        },
+      });
     });
-  });
+  }
 
   // ------------------------------------------------------------- laptop
   const clientMessage = z.discriminatedUnion('type', [
@@ -236,5 +238,33 @@ if (existsSync(webDist)) {
   app.log.warn(`No built web app at ${webDist}. Run "npm run build" to serve the scene and selfie page from this server.`);
 }
 
-  return { app, registry, gate, activeCalls: () => activeCalls };
+  let tacServer: import('twilio-agent-connect').TACServer | undefined;
+  if (config.voiceTransport === 'tac') {
+    process.env.TAC_ANALYTICS_DISABLED ??= 'true';
+    const { attachTacServer } = await import('./tac-transport.js');
+    const attached = await attachTacServer({
+        app,
+        config,
+        registry,
+        gate,
+        getActiveCalls: () => activeCalls,
+        incrementActiveCalls: (delta) => { activeCalls = Math.max(0, activeCalls + delta); },
+        onFinalHold(session, token, callSid) {
+          const timer = setTimeout(() => {
+            finalHolds.delete(token);
+            session.gauntlet.endCall('disconnected');
+          }, 90_000);
+          timer.unref();
+          finalHolds.set(token, { session, callSid, timer });
+        },
+      });
+    tacServer = attached.server;
+    app.addHook('onClose', async () => {
+      attached.tac.shutdown();
+      const { shutdownAnalytics } = await import('twilio-agent-connect');
+      await shutdownAnalytics();
+    });
+  }
+
+  return { app, registry, gate, activeCalls: () => activeCalls, tacServer };
 }

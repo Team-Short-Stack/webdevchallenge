@@ -17,7 +17,7 @@ label differs slightly, look for the closest one.
 6. Create a key at <https://platform.openai.com/api-keys> with **Create new secret key**. Copy it straight away; it
    is shown only once. Do not use a read-only or restricted key that excludes Realtime. New users may be asked to
    verify a phone number first.
-7. Put it in `.env`:
+7. Put it in `.env.development`:
 
    ```
    OPENAI_API_KEY=sk-...
@@ -30,18 +30,21 @@ label differs slightly, look for the closest one.
    capability, and click **Buy** next to a number.
 3. Trial accounts only accept calls from numbers you have **verified** with Twilio. Add your own mobile number as a
    verified caller ID in the console, or upgrade the account so anyone you choose can call.
-4. Find your **Auth Token** in the Console home page under **Account Info** (next to the Account SID). Put it in `.env`:
+4. Find your **Auth Token** in the Console home page under **Account Info** (next to the Account SID). Put it in `.env.development`:
 
    ```
    TWILIO_AUTH_TOKEN=...
    ```
 
-   This lets the server reject requests that do not really come from Twilio. This app only needs the Auth Token,
-   not the Account SID.
-5. Tell the number where to send calls (after step 3 below gives you a public URL): click the number, open the
+   This lets the server reject requests that do not really come from Twilio.
+5. For the TAC transport only, create a **Standard API Key** in **Builder tools > API Keys & auth tokens**. Add
+   its SID and secret to `TWILIO_API_KEY` and `TWILIO_API_SECRET`, and set `TWILIO_ACCOUNT_SID` and
+   `TWILIO_PHONE_NUMBER` in the environment too. Keep `VOICE_TRANSPORT=legacy` for local development; the TAC
+   test deployment can set `VOICE_TRANSPORT=tac` and use its own set of Railway variables.
+6. Tell the number where to send calls (after step 3 below gives you a public URL): click the number, open the
    **Configure** tab, find **Voice Configuration**, and in the **A call comes in** row choose **Webhook**. Set the
    URL to `https://YOUR-NGROK-URL/incoming-call` with method **HTTP POST**, and save.
-6. Before sharing the number with anyone, restrict **Voice Geographic Permissions** to the countries you need and
+7. Before sharing the number with anyone, restrict **Voice Geographic Permissions** to the countries you need and
    add **Usage Triggers**. See the security notes in the README.
 
 Twilio charges for the number and for call minutes, and OpenAI charges for audio use. Check both pricing pages
@@ -52,7 +55,7 @@ before long testing sessions.
 1. Sign up at <https://ngrok.com> and install ngrok.
 2. Add your token once: `ngrok config add-authtoken YOUR_TOKEN`.
 3. Start a tunnel to the server's port: `ngrok http 5050`.
-4. Copy the `https://...` address it shows into `.env` (no trailing slash):
+4. Copy the `https://...` address it shows into `.env.development` (no trailing slash):
 
    ```
    PUBLIC_BASE_URL=https://your-name.ngrok-free.dev
@@ -60,7 +63,7 @@ before long testing sessions.
    ```
 
 5. Use the same address in the Twilio webhook (step 2.5). The free plan gives you one stable dev domain; if your
-   address ever changes, update both `.env` and the Twilio webhook.
+   address ever changes, update both `.env.development` and the Twilio webhook.
 
 ngrok's local inspector at <http://127.0.0.1:4040> shows every request Twilio sends, which is the quickest way to
 debug the webhook.
@@ -70,7 +73,7 @@ debug the webhook.
 ```bash
 nvm use                  # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
-cp .env.example .env     # if you have not already; fill in the values above
+cp .env.example .env.development     # if you have not already; fill in the values above
 npm run build
 npm run dev
 ```

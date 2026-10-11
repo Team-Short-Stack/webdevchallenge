@@ -39,12 +39,12 @@ value comes from.
 ```bash
 nvm use                       # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
-cp .env.example .env          # then fill in OPENAI_API_KEY and the rest
+cp .env.example .env.development # then fill in OPENAI_API_KEY and the rest
 npm run build                 # builds the web app that the server serves
 ngrok http 5050               # copy the https URL it prints
 ```
 
-1. Put that URL in `.env` as `PUBLIC_BASE_URL` (no trailing slash), and your Twilio number in
+1. Put that URL in `.env.development` as `PUBLIC_BASE_URL` (no trailing slash), and your Twilio number in
    `PHONE_DISPLAY_NUMBER`.
 2. In the Twilio console, open your number, and under **Voice Configuration > A call comes in** set a webhook
    (HTTP POST) to `https://YOUR-NGROK-URL/incoming-call`.
@@ -71,6 +71,8 @@ Everything is an environment variable; see `.env.example` for the full, commente
 | `OPENAI_REALTIME_MODEL` | Defaults to `gpt-realtime-2.1`. |
 | `PUBLIC_BASE_URL` | Your public https address. Used for the QR code and signature checks. |
 | `TWILIO_AUTH_TOKEN` | Enables Twilio signature checks. Required when `NODE_ENV=production`. |
+| `VOICE_TRANSPORT` | Voice integration selector: `legacy` (default) or `tac`. TAC uses the app's custom provider with the TAC Voice channel. |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY`, `TWILIO_API_SECRET`, `TWILIO_PHONE_NUMBER` | Required only for `VOICE_TRANSPORT=tac`; use a Twilio API key/secret in addition to the Auth Token. |
 | `ALLOWED_CALLERS` | Comma-separated numbers allowed to call. Blank means anyone. |
 | `MAX_CALL_MINUTES`, `MAX_CONCURRENT_CALLS` | Hard limits on call length and parallel calls. |
 

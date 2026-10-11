@@ -31,7 +31,7 @@ npm install
 npm test               # server tests, no network needed
 npm run typecheck      # server and web
 npm run build          # web app into web/dist
-npm run dev            # server with reload (needs .env)
+npm run dev            # server with reload (needs .env.development)
 ```
 
 ## Guidance for ChatGPT and Codex
@@ -50,7 +50,7 @@ npm run dev            # server with reload (needs .env)
    the state machine.
 3. **Tool results must never contain an answer the model would have to judge.** The model would say it aloud.
 4. **Keep `shared/protocol.ts` the single source of truth** for messages. Update server and web together.
-5. **Secrets stay in environment variables.** Never log full phone numbers (use `maskNumber`), never commit `.env`.
+5. **Secrets stay in environment variables.** Never log full phone numbers (use `maskNumber`), never commit env files.
 6. **Protections stay on:** Twilio signature check, stream gate, caller allow list, concurrency and duration caps.
    Do not add an endpoint that places outbound calls.
 7. **Add a test for behavior you change** in `engine.ts` or `app.ts`. Tests use a scripted RNG; see `engine.test.ts`.
