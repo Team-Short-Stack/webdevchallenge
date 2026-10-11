@@ -24,7 +24,7 @@ interface PlanetSpec {
 }
 
 const SPECS: Record<Stage, PlanetSpec> = {
-  pairing: { radius: 1.9, base: '#8d8a86', accents: ['#6f6c68', '#aaa6a0', '#5d5a57'], kind: 'craters' },
+  pairing: { radius: 1.9, base: '#ef946f', accents: ['#dc7858', '#ffc39b', '#b65b47'], kind: 'craters' },
   language: { radius: 3.45, base: '#2f6db5', accents: ['#3f8a52', '#8a7a4a', '#ffffff'], kind: 'earth' },
   selfie: { radius: 2.6, base: '#b5502e', accents: ['#8e3a1f', '#d27a4a', '#6e2c18'], kind: 'craters' },
   humanCheck: { radius: 1.4, base: '#c9a27a', accents: ['#a87b57', '#e2c9a6', '#8f5f42', '#f0e2cc'], kind: 'bands' },
@@ -38,7 +38,7 @@ const POSITIONS: Record<Stage, THREE.Vector3> = Object.fromEntries(
 const LED_RED = new THREE.Color('#ff4a3d');
 const PASS_TEAL = new THREE.Color('#2ee6c8');
 const OVERVIEW_POSITION = new THREE.Vector3(0, 9, 58);
-const OVERVIEW_TARGET = new THREE.Vector3(0, 0, -2);
+const OVERVIEW_TARGET = new THREE.Vector3(0, -2, -2);
 
 function mulberry32(seed: number) {
   let a = seed;
@@ -204,6 +204,21 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xcfd9f5, size: 0.7, sizeAttenuation: true }));
   scene.add(stars);
 
+  const mustacheMaterial = new THREE.MeshBasicMaterial({
+    color: '#35251e', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
+  });
+  const mustacheLobes = [-1, 1].map((side) => {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.bezierCurveTo(side * 0.5, 0.65, side * 1.15, 0.2, side * 1.45, 0.05);
+    shape.bezierCurveTo(side * 1.9, -0.15, side * 2.15, 0.25, side * 2.25, 0.65);
+    shape.bezierCurveTo(side * 2.5, -0.7, side * 1.5, -0.95, side * 0.8, -0.5);
+    shape.bezierCurveTo(side * 0.4, -0.25, side * 0.2, -0.08, 0, 0);
+    return shape;
+  });
+  const mustache = new THREE.Mesh(new THREE.ShapeGeometry(mustacheLobes, 32), mustacheMaterial);
+  scene.add(mustache);
+
   // Planets
   const planets: PlanetNode[] = STAGES.map((stage, i) => {
     const spec = SPECS[stage];
@@ -215,6 +230,27 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     mesh.position.copy(home);
     mesh.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.08;
     scene.add(mesh);
+
+    if (stage === 'pairing') {
+      const surface = new THREE.PlaneGeometry(spec.radius * 1.4, spec.radius * 1.4, 48, 48);
+      const vertices = surface.getAttribute('position');
+      for (let vertex = 0; vertex < vertices.count; vertex++) {
+        const x = vertices.getX(vertex);
+        const y = vertices.getY(vertex);
+        vertices.setZ(vertex, Math.sqrt(spec.radius ** 2 - x ** 2 - y ** 2) + 0.015);
+      }
+      surface.computeVertexNormals();
+      mesh.add(new THREE.Mesh(surface, new THREE.MeshStandardMaterial({
+        map: new THREE.TextureLoader().load('/lolzitron-salmon.png', (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+        }),
+        transparent: true,
+        alphaTest: 0.1,
+        roughness: 0.95,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+      })));
+    }
 
     if (stage === 'humanCheck') {
       const radius = spec.radius * 1.06;
@@ -297,6 +333,196 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     return { stage, mesh, halo, haloMaterial, label, home, shake: 0, pulse: 0, tint: 0 };
   });
 
+  const twinPlanets = [-1, 1].map((side) => {
+    const mesh = new THREE.Group();
+    const globe = new THREE.Mesh(new THREE.SphereGeometry(2.5, 48, 32),
+      new THREE.MeshStandardMaterial({
+        map: planetTexture({ radius: 2.5, base: side < 0 ? '#d3b5ce' : '#b0cedd', accents: ['#eadce5', '#97b0c4', '#cfdaea'], kind: 'bands' }, 100),
+        roughness: 0.8, metalness: 0.1,
+      }));
+    mesh.add(globe);
+    const frames = new THREE.MeshStandardMaterial({ color: '#192235', roughness: 0.4 });
+    for (const x of [-0.95, 0.95]) {
+      for (const y of [-0.4, 0.9]) {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.15, 0.18), frames);
+        edge.position.set(x, y, 2.35);
+        mesh.add(edge);
+      }
+      for (const offset of [-0.7, 0.7]) {
+        const edge = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.3, 0.18), frames);
+        edge.position.set(x + offset, 0.25, 2.35);
+        mesh.add(edge);
+      }
+      const lens = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.15),
+        new THREE.MeshStandardMaterial({ color: '#c2ebff', transparent: true, opacity: 0.25, roughness: 0.15, depthWrite: false }));
+      lens.position.set(x, 0.25, 2.36);
+      mesh.add(lens);
+    }
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.15, 0.15), frames);
+    bridge.position.set(0, 0.3, 2.35);
+    mesh.add(bridge);
+    for (const side of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.15, 1.1), frames);
+      arm.position.set(side * 1.8, 0.25, 1.9);
+      mesh.add(arm);
+    }
+    mesh.position.set(side * 8, -11, -1);
+    scene.add(mesh);
+    const label = document.createElement('div');
+    label.className = 'planet-label';
+    const title = document.createElement('strong');
+    title.textContent = side < 0 ? 'Favorite' : 'Other One';
+    label.appendChild(title);
+    labelRoot.appendChild(label);
+    return { mesh, label, homeY: -11 };
+  });
+
+  const shashune = new THREE.Group();
+  const shellProfile = new THREE.Shape();
+  shellProfile.moveTo(-2.35, 0.35);
+  shellProfile.bezierCurveTo(-2.25, -1.9, 2.25, -1.9, 2.35, 0.35);
+  shellProfile.bezierCurveTo(1.4, 0.55, -1.4, 0.55, -2.35, 0.35);
+  const shellBody = new THREE.Mesh(new THREE.ExtrudeGeometry(shellProfile, {
+    depth: 1.1, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.1, bevelSegments: 3, curveSegments: 40,
+  }), new THREE.MeshStandardMaterial({ color: '#e7a638', roughness: 0.85 }));
+  shellBody.position.z = -0.4;
+  shashune.add(shellBody);
+  for (let i = 0; i < 11; i++) {
+    const filling = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 12),
+      new THREE.MeshStandardMaterial({ color: i % 3 === 0 ? '#ef5441' : '#67be3b', roughness: 0.9 }));
+    filling.position.set(-2 + i * 0.4, 0.55 + Math.sin(i * 1.7) * 0.1, 0.2);
+    shashune.add(filling);
+  }
+  const tacoCanvas = document.createElement('canvas');
+  tacoCanvas.width = 768;
+  tacoCanvas.height = 512;
+  const taco = tacoCanvas.getContext('2d')!;
+  taco.lineJoin = 'round';
+  taco.lineCap = 'round';
+  taco.lineWidth = 12;
+  taco.strokeStyle = '#492a19';
+  taco.fillStyle = '#9b4c26';
+  taco.beginPath();
+  taco.ellipse(384, 235, 307, 115, 0, 0, Math.PI * 2);
+  taco.fill();
+  taco.stroke();
+  for (let i = 0; i < 12; i++) {
+    taco.fillStyle = i % 2 ? '#70c94a' : '#43a836';
+    taco.beginPath();
+    taco.arc(102 + i * 51, 212 + Math.sin(i * 1.6) * 20, 40, 0, Math.PI * 2);
+    taco.fill();
+    taco.stroke();
+  }
+  for (let i = 0; i < 6; i++) {
+    taco.fillStyle = '#f45443';
+    taco.beginPath();
+    taco.roundRect(155 + i * 86, 185 + (i % 2) * 21, 48, 38, 8);
+    taco.fill();
+    taco.stroke();
+    taco.strokeStyle = '#ffe57b';
+    taco.lineWidth = 10;
+    taco.beginPath();
+    taco.moveTo(129 + i * 86, 227);
+    taco.lineTo(162 + i * 86, 199);
+    taco.stroke();
+    taco.strokeStyle = '#492a19';
+    taco.lineWidth = 12;
+  }
+  taco.fillStyle = '#ffcc55';
+  taco.beginPath();
+  taco.moveTo(72, 242);
+  taco.bezierCurveTo(130, 206, 640, 206, 696, 242);
+  taco.bezierCurveTo(680, 513, 88, 513, 72, 242);
+  taco.closePath();
+  taco.fill();
+  taco.stroke();
+  taco.fillStyle = '#d89636';
+  for (let i = 0; i < 30; i++) {
+    const x = 135 + (i * 97 % 490);
+    const y = 270 + (i * 43 % 125);
+    taco.beginPath();
+    taco.ellipse(x, y, 5, 3, i, 0, Math.PI * 2);
+    taco.fill();
+  }
+  for (const x of [307, 461]) {
+    taco.fillStyle = '#492a19';
+    taco.beginPath();
+    taco.ellipse(x, 311, 14, 21, 0, 0, Math.PI * 2);
+    taco.fill();
+    taco.fillStyle = '#ffffff';
+    taco.beginPath();
+    taco.arc(x - 4, 304, 4, 0, Math.PI * 2);
+    taco.fill();
+  }
+  taco.beginPath();
+  taco.arc(384, 331, 28, 0.15, Math.PI - 0.15);
+  taco.stroke();
+  const tacoTexture = new THREE.CanvasTexture(tacoCanvas);
+  tacoTexture.colorSpace = THREE.SRGBColorSpace;
+  const tacoArt = new THREE.Mesh(new THREE.PlaneGeometry(6, 4),
+    new THREE.MeshBasicMaterial({ map: tacoTexture, transparent: true, alphaTest: 0.1 }));
+  tacoArt.position.set(0, 0.25, 0.95);
+  shashune.add(tacoArt);
+  shashune.position.set(-22, -14, -1);
+  scene.add(shashune);
+  const shashuneLabel = document.createElement('div');
+  shashuneLabel.className = 'planet-label';
+  const shashuneTitle = document.createElement('strong');
+  shashuneTitle.textContent = '2AM';
+  shashuneLabel.appendChild(shashuneTitle);
+  labelRoot.appendChild(shashuneLabel);
+  twinPlanets.push({ mesh: shashune, label: shashuneLabel, homeY: -14 });
+
+  const neigh = new THREE.Group();
+  const coat = new THREE.MeshStandardMaterial({ color: '#ad7049', roughness: 0.95 });
+  const mane = new THREE.MeshStandardMaterial({ color: '#38271f', roughness: 1 });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(1, 40, 28), coat);
+  head.scale.set(1.35, 2.15, 1.15);
+  neigh.add(head);
+  const muzzle = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24),
+    new THREE.MeshStandardMaterial({ color: '#dfb394', roughness: 0.9 }));
+  muzzle.scale.set(1.45, 0.8, 0.95);
+  muzzle.position.set(0, -1.45, 0.55);
+  neigh.add(muzzle);
+  for (const side of [-1, 1]) {
+    const ear = new THREE.Mesh(new THREE.ConeGeometry(0.4, 1.4, 24), coat);
+    ear.position.set(side * 0.85, 2.2, 0);
+    ear.rotation.z = side * -0.18;
+    neigh.add(ear);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.19, 16, 12), mane);
+    eye.position.set(side * 0.73, 0.5, 1);
+    neigh.add(eye);
+    const glint = new THREE.Mesh(new THREE.SphereGeometry(0.055, 12, 8), new THREE.MeshBasicMaterial({ color: '#ffffff' }));
+    glint.position.set(side * 0.73 - 0.04, 0.56, 1.16);
+    neigh.add(glint);
+    const nostril = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), mane);
+    nostril.scale.set(1, 0.7, 0.5);
+    nostril.position.set(side * 0.67, -1.5, 1.43);
+    neigh.add(nostril);
+  }
+  for (let i = 0; i < 6; i++) {
+    const tuft = new THREE.Mesh(new THREE.SphereGeometry(0.45, 16, 12), mane);
+    tuft.scale.set(0.8, 1.4, 0.65);
+    tuft.position.set(-0.15 + i * 0.12, 1.65 - i * 0.14, 0.9);
+    neigh.add(tuft);
+  }
+  neigh.position.set(0, -23, -1);
+  scene.add(neigh);
+  const neighLabel = document.createElement('div');
+  neighLabel.className = 'planet-label';
+  const neighTitle = document.createElement('strong');
+  neighTitle.textContent = 'Planet Neigh';
+  neighLabel.appendChild(neighTitle);
+  labelRoot.appendChild(neighLabel);
+  const neighIndex = twinPlanets.length;
+  twinPlanets.push({ mesh: neigh, label: neighLabel, homeY: -23 });
+  const horseGif = document.createElement('img');
+  horseGif.src = '/horse.gif';
+  horseGif.alt = 'Animated horse';
+  horseGif.hidden = true;
+  horseGif.style.cssText = 'position:absolute;transform:translate(-50%,-50%);object-fit:contain;border-radius:16px;pointer-events:none;z-index:1;';
+  container.appendChild(horseGif);
+
   // Selfie ID card beside Snapturn
   const marsHome = POSITIONS.selfie;
   const card = new THREE.Group();
@@ -354,6 +580,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   }
 
   tardis.position.set(7, 11, 2);
+  tardis.scale.setScalar(1.3);
   scene.add(tardis);
 
   const tardisLabel = document.createElement('div');
@@ -366,14 +593,17 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   const pointerNdc = new THREE.Vector2();
   let pointerDownAt: { x: number; y: number } | null = null;
   let focusedStage: Stage | null = null;
+  let focusedTwin: number | null = null;
 
-  function sceneHit(clientX: number, clientY: number): Stage | 'tardis' | null {
+  function sceneHit(clientX: number, clientY: number): Stage | 'tardis' | number | null {
     const rect = renderer.domElement.getBoundingClientRect();
     pointerNdc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
     pointerNdc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointerNdc, camera);
-    const hit = raycaster.intersectObjects([tardis, ...planets.map((planet) => planet.mesh)], true)[0];
+    const hit = raycaster.intersectObjects([tardis, ...planets.map((planet) => planet.mesh), ...twinPlanets.map((twin) => twin.mesh)], true)[0];
     if (!hit) return null;
+    const twinIndex = twinPlanets.findIndex((twin) => twin.mesh === hit.object || twin.mesh === hit.object.parent);
+    if (twinIndex >= 0) return twinIndex;
     const planet = planets.find((planet) => planet.mesh === hit.object || planet.mesh === hit.object.parent);
     return planet?.stage ?? 'tardis';
   }
@@ -390,13 +620,28 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     pointerDownAt = null;
     if (moved >= 6) return; // was a drag, not a click
     const hit = sceneHit(event.clientX, event.clientY);
-    if (hit === 'tardis') {
+    if (typeof hit === 'number') {
+      if (focusedTwin === hit) {
+        cameraTarget.copy(OVERVIEW_POSITION);
+        lookTarget.copy(OVERVIEW_TARGET);
+        focusedTwin = null;
+      } else {
+        const twin = twinPlanets[hit]!;
+        cameraTarget.copy(twin.mesh.position).add(new THREE.Vector3(1.5, 1.4, 17));
+        lookTarget.copy(twin.mesh.position);
+        focusedTwin = hit;
+      }
+      focusedStage = null;
+      onViewChange();
+    } else if (hit === 'tardis') {
       onTardisClick();
     } else if (hit && hit !== focusedStage) {
+      focusedTwin = null;
       frame(hit);
       focusedStage = hit;
       onViewChange();
-    } else if (focusedStage !== null) {
+    } else if (focusedStage !== null || focusedTwin !== null) {
+      focusedTwin = null;
       cameraTarget.copy(OVERVIEW_POSITION);
       lookTarget.copy(OVERVIEW_TARGET);
       focusedStage = null;
@@ -426,8 +671,8 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     camera.aspect = w / h;
-    OVERVIEW_POSITION.z = Math.max(58, 40 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) + 6);
-    if (focusedStage === null && (phaseIndex <= 0 || ended)) cameraTarget.copy(OVERVIEW_POSITION);
+    OVERVIEW_POSITION.z = Math.max(74, 40 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) + 6);
+    if (focusedStage === null && focusedTwin === null && (phaseIndex <= 0 || ended)) cameraTarget.copy(OVERVIEW_POSITION);
     // Leave room below the planets for the prompt; the tickets menu overlays the scene.
     camera.setViewOffset(w, h, 0, Math.round(h * 0.06), w, h);
     camera.updateProjectionMatrix();
@@ -449,10 +694,35 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     controls.update();
 
     stars.rotation.y += dt * 0.004;
+    const showHorse = focusedTwin === neighIndex;
+    if (showHorse && horseGif.hidden) horseGif.src = `/horse.gif?play=${Date.now()}`;
+    horseGif.hidden = !showHorse;
+
+    twinPlanets.forEach((twin, index) => {
+      twin.mesh.position.y = twin.homeY + (reduceMotion ? 0 : Math.sin(t * 0.5 + index * Math.PI) * 0.35);
+      twin.mesh.quaternion.copy(camera.quaternion);
+      if (index === neighIndex && showHorse) {
+        tmp.copy(twin.mesh.position).project(camera);
+        const width = renderer.domElement.clientWidth;
+        const height = renderer.domElement.clientHeight;
+        horseGif.style.left = `${((tmp.x + 1) / 2) * width}px`;
+        horseGif.style.top = `${((1 - tmp.y) / 2) * height}px`;
+        const edge = twin.mesh.position.clone().add(new THREE.Vector3(2.6, 0, 0).applyQuaternion(camera.quaternion)).project(camera);
+        const size = Math.abs(edge.x - tmp.x) * width;
+        horseGif.style.width = `${size}px`;
+        horseGif.style.height = `${size}px`;
+      }
+      tmp.copy(twin.mesh.position);
+      tmp.y += 3.8;
+      tmp.project(camera);
+      twin.label.style.opacity = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15 ? '0.85' : '0';
+      twin.label.style.transform = `translate(-50%, -100%) translate(${((tmp.x + 1) / 2) * renderer.domElement.clientWidth}px, ${((1 - tmp.y) / 2) * renderer.domElement.clientHeight}px)`;
+    });
 
     for (const p of planets) {
       const index = STAGES.indexOf(p.stage);
-      p.mesh.rotation.y += dt * (0.06 + index * 0.012);
+      if (p.stage === 'pairing') p.mesh.quaternion.copy(camera.quaternion);
+      else p.mesh.rotation.y += dt * (0.06 + index * 0.012);
 
       let shakeX = 0;
       let shakeY = 0;
@@ -473,6 +743,14 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
         p.pulse = 0;
       }
       p.mesh.scale.setScalar(scale);
+
+      if (p.stage === 'ticket') {
+        mustache.quaternion.copy(camera.quaternion);
+        mustache.position.set(0, -0.4, SPECS.ticket.radius + 0.1)
+          .applyQuaternion(camera.quaternion).add(p.mesh.position);
+        mustache.scale.setScalar(scale);
+        mustacheMaterial.opacity = reduceMotion ? 1 : (1 + Math.sin(t * Math.PI / 3)) / 2;
+      }
 
       // Halo: red and pulsing on the current planet, teal on planets already passed.
       const isCurrent = !ended && index === currentIndex;
@@ -513,7 +791,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     tardis.position.y = 11 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
 
     tmp.copy(tardis.position);
-    tmp.y += 1.9;
+    tmp.y += 2.4;
     tmp.project(camera);
     const tardisVisible = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15;
     tardisLabel.style.opacity = tardisVisible ? '1' : '0';
@@ -532,6 +810,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       onViewChange();
     },
     setPhase(phase) {
+      focusedTwin = null;
       focusedStage = null; // A call stage change returns the camera to the active step.
       const idx = (STAGES as readonly string[]).indexOf(phase);
       if (idx >= 0) {
@@ -600,6 +879,8 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       renderer.domElement.remove();
       for (const p of planets) p.label.remove();
       tardisLabel.remove();
+      horseGif.remove();
+      for (const twin of twinPlanets) twin.label.remove();
     },
   };
 }

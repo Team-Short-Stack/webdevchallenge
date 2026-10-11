@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
+import { PAIRING_ACRONYMS, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
 import type { AppState } from './state.js';
 
 type Child = Node | string | null | undefined | false;
@@ -84,6 +84,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
           el('p', { class: 'phone' }, number),
           el('p', { class: 'hint' }, 'When the agent answers, say this code:'),
           el('p', { class: 'code', 'aria-label': `Code ${code.split('').join(' ')}` }, code.split('').join(' ')),
+          PAIRING_ACRONYMS[code] ? el('p', { class: 'hint' }, PAIRING_ACRONYMS[code]) : null,
         ),
       };
     }

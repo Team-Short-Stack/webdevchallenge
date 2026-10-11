@@ -1,39 +1,10 @@
 // All the absurd things callers are asked to do. Edit freely.
+import { PAIRING_ACRONYMS } from '../../shared/protocol.js';
 
 export type Rng = () => number;
 
-/**
- * Silly pairing codes the caller spells out to the agent instead of digits. Drawn from a few
- * batches generated with server/scripts/generate-pairing-codes.ts and hand-picked for being
- * pronounceable and funny (the model tends to drift into either real words or unpronounceable
- * letter noise, so review anything newly generated before adding it here).
- */
-export const PAIRING_CODES = [
-  'FML',
-  'SMH',
-  'BRB',
-  'TBH',
-  'LMK',
-  'FOMO',
-  'YOLO',
-  'LYLS',
-  'WUBS',
-  'ZAZZ',
-  'NURD',
-  'WHAP',
-  'GORM',
-  'SPLU',
-  'KLOP',
-  'MURP',
-  'HOOF',
-  'JIBS',
-  'SQUK',
-  'SHNOZ',
-  'PLOP',
-  'DING',
-  'BEEP',
-  'GLOP',
-] as const;
+/** Clean, familiar acronyms the caller spells out to the agent. */
+export const PAIRING_CODES = Object.keys(PAIRING_ACRONYMS);
 
 export interface LanguageCheck {
   language: string;
