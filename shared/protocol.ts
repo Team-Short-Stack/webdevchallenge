@@ -7,6 +7,33 @@ export type Stage = (typeof STAGES)[number];
 /** A stage, or one of the two terminal states of a call. */
 export type Phase = Stage | 'done' | 'abandoned';
 
+export const PAIRING_ACRONYMS: Record<string, string> = {
+  BRB: 'Be right back',
+  LOL: 'Laugh out loud',
+  OMG: 'Oh my gosh',
+  TBH: 'To be honest',
+  LMK: 'Let me know',
+  SMH: 'Shaking my head',
+  FOMO: 'Fear of missing out',
+  YOLO: 'You only live once',
+  BTW: 'By the way',
+  FYI: 'For your information',
+  ASAP: 'As soon as possible',
+  AFK: 'Away from keyboard',
+  IRL: 'In real life',
+  IDK: "I don't know",
+  IMO: 'In my opinion',
+  IMHO: 'In my humble opinion',
+  TTYL: 'Talk to you later',
+  BFF: 'Best friends forever',
+  ROFL: 'Rolling on the floor laughing',
+  JK: 'Just kidding',
+  ICYMI: 'In case you missed it',
+  DIY: 'Do it yourself',
+  FAQ: 'Frequently asked questions',
+  RSVP: "Répondez s'il vous plaît (Please respond)",
+};
+
 export const PLANETS: Record<Stage, string> = {
   pairing: 'Lolzitron',
   language: 'Translatopia',
