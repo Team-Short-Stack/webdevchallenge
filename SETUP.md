@@ -44,6 +44,12 @@ label differs slightly, look for the closest one.
 6. Tell the number where to send calls (after step 3 below gives you a public URL): click the number, open the
    **Configure** tab, find **Voice Configuration**, and in the **A call comes in** row choose **Webhook**. Set the
    URL to `https://YOUR-NGROK-URL/incoming-call` with method **HTTP POST**, and save.
+7. For an in-browser test phone on a private Sandbox, create a TwiML App in **Develop > Voice > TwiML Apps**.
+   Set its Voice Request URL to `https://YOUR-SANDBOX-DOMAIN/incoming-call` (HTTP POST). Add the app SID as
+   `TWILIO_TWIML_APP_SID`, set `ENABLE_DEV_PHONE=true`, and create a private `DEV_PHONE_ACCESS_CODE` of at
+   least 16 characters. Deploy those variables only to Sandbox. The app then shows **Call from this computer**;
+   allow microphone access and enter the access code. This makes a real Twilio call and incurs normal call and
+   model usage charges.
 7. Before sharing the number with anyone, restrict **Voice Geographic Permissions** to the countries you need and
    add **Usage Triggers**. See the security notes in the README.
 

@@ -394,6 +394,27 @@ body {
   min-width: 320px;
 }
 
+.dev-phone {
+  position: fixed;
+  z-index: 20;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 40px);
+  padding: 10px;
+  border: 1px solid rgba(230, 235, 242, 0.25);
+  border-radius: 10px;
+  background: rgba(7, 11, 22, 0.92);
+  color: #e6ebf2;
+  font: 13px 'Public Sans', sans-serif;
+}
+
+.dev-phone[hidden] { display: none; }
+.dev-phone-code { width: 150px; padding: 9px; border: 1px solid #687184; border-radius: 6px; background: #101727; color: inherit; }
+.dev-phone-status { max-width: 220px; }
+
 @media (max-width: 960px) {
   .prompt {
     width: calc(100vw - 32px);

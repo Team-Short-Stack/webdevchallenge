@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import fastifyFormBody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
@@ -25,6 +25,7 @@ const registry = new Registry(
 const gate = new StreamGate();
 let activeCalls = 0;
 const finalHolds = new Map<string, { session: CallSession; callSid: string; timer: NodeJS.Timeout }>();
+const devPhoneAttempts = new Map<string, { startedAt: number; count: number }>();
 app.addHook('onClose', async () => {
   for (const hold of finalHolds.values()) clearTimeout(hold.timer);
 });
@@ -43,6 +44,33 @@ app.get('/healthz', async () => ({ ok: true, sessions: registry.size, activeCall
 
 // Public settings the laptop app needs.
 app.get('/api/config', async () => ({ phoneNumber: config.phoneDisplayNumber ?? null }));
+app.get('/api/dev-phone/config', async (_request, reply) => {
+  if (!config.enableDevPhone) return reply.code(404).send({ error: 'Dev Phone is disabled.' });
+  return { enabled: true, phoneNumber: config.twilioPhoneNumber };
+});
+
+app.post('/api/dev-phone/token', async (request, reply) => {
+  if (!config.enableDevPhone || !config.twilioTwimlAppSid || !config.twilioApiKey || !config.twilioApiSecret || !config.twilioAccountSid) {
+    return reply.code(404).send({ error: 'Dev Phone is disabled.' });
+  }
+  const now = Date.now();
+  const attempt = devPhoneAttempts.get(request.ip);
+  if (attempt && now - attempt.startedAt < 60_000 && attempt.count >= 5) {
+    return reply.code(429).send({ error: 'Too many attempts. Wait a minute and try again.' });
+  }
+  if (!attempt || now - attempt.startedAt >= 60_000) devPhoneAttempts.set(request.ip, { startedAt: now, count: 1 });
+  else attempt.count += 1;
+  const { accessCode } = (request.body ?? {}) as { accessCode?: unknown };
+  const supplied = typeof accessCode === 'string' ? Buffer.from(accessCode) : Buffer.alloc(0);
+  const expected = Buffer.from(config.devPhoneAccessCode ?? '');
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+    return reply.code(401).send({ error: 'Incorrect access code.' });
+  }
+  const identity = `dev_${randomUUID().replaceAll('-', '')}`;
+  const token = new twilio.jwt.AccessToken(config.twilioAccountSid, config.twilioApiKey, config.twilioApiSecret, { identity, ttl: 900 });
+  token.addGrant(new twilio.jwt.AccessToken.VoiceGrant({ outgoingApplicationSid: config.twilioTwimlAppSid, incomingAllow: false }));
+  return { token: token.toJwt(), identity, phoneNumber: config.twilioPhoneNumber };
+});
 
 // ---------------------------------------------------------------- Twilio
 
@@ -69,7 +97,7 @@ if (config.voiceTransport === 'legacy') app.post('/incoming-call', async (reques
   }
 
   const from = params.From;
-  if (config.allowedCallers.length > 0 && (!from || !config.allowedCallers.includes(from))) {
+  if (config.allowedCallers.length > 0 && (!from || (!from.startsWith('client:dev_') && !config.allowedCallers.includes(from)))) {
     request.log.warn({ from: maskNumber(from) }, 'rejected caller not on the allow list');
     return rejectCall(reply, 'This line is closed to you. Please try again never.');
   }

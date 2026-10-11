@@ -61,6 +61,37 @@ Notes:
 - Set `TWILIO_AUTH_TOKEN` to make the server reject requests that do not carry a valid Twilio signature.
   Set `ALLOWED_CALLERS` for any demo with a public number.
 
+## In-browser test phone (Sandbox)
+
+The app can place a test call from the browser, so you can use your computer's microphone and speakers
+instead of a physical phone. This uses Twilio's Voice JavaScript SDK and still runs the normal call flow
+through the app. It is intended for a private test environment such as the Railway `Sandbox` environment.
+Calls use Twilio and OpenAI and incur the usual usage charges.
+
+1. In Twilio Console, create a **TwiML App** under **Develop > Voice > TwiML Apps**.
+2. Set its Voice Request URL to the public URL of the app environment followed by `/incoming-call`, for
+   example `https://YOUR-SANDBOX-DOMAIN.up.railway.app/incoming-call`. Choose **HTTP POST** and save.
+   This is the TwiML App URL; your Twilio phone number can keep its existing webhook configuration.
+3. In Railway, select the `Sandbox` environment and set these variables on the app service:
+
+   ```text
+   ENABLE_DEV_PHONE=true
+   TWILIO_TWIML_APP_SID=AP...   # SID of the TwiML App created above
+   DEV_PHONE_ACCESS_CODE=       # private random code, at least 16 characters
+   ```
+
+   `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY`, `TWILIO_API_SECRET`, `TWILIO_PHONE_NUMBER`, and
+   `TWILIO_AUTH_TOKEN` must also be set. The TAC transport requires these already. Keep the Dev Phone
+   variables out of Production and leave `ENABLE_DEV_PHONE=false` there.
+4. Deploy the Sandbox service and open its public app URL. The **Call from this computer** controls appear
+   only when the feature is enabled. Enter the access code, click the button, and allow microphone access
+   when the browser asks. The status will show when the call connects; use the same button to hang up.
+5. Keep the app open during the call. The main screen displays the call's pairing code and prompts; speak
+   into the computer microphone as you complete the stages.
+
+The token endpoint allows five incorrect access-code attempts per minute per IP address. Turn the feature
+off by setting `ENABLE_DEV_PHONE=false` in Sandbox when you finish testing.
+
 ## Configuration
 
 Everything is an environment variable; see `.env.example` for the full, commented list.
@@ -73,6 +104,7 @@ Everything is an environment variable; see `.env.example` for the full, commente
 | `TWILIO_AUTH_TOKEN` | Enables Twilio signature checks. Required when `NODE_ENV=production`. |
 | `VOICE_TRANSPORT` | Voice integration selector: `legacy` (default) or `tac`. TAC uses the app's custom provider with the TAC Voice channel. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY`, `TWILIO_API_SECRET`, `TWILIO_PHONE_NUMBER` | Required only for `VOICE_TRANSPORT=tac`; use a Twilio API key/secret in addition to the Auth Token. |
+| `ENABLE_DEV_PHONE`, `TWILIO_TWIML_APP_SID`, `DEV_PHONE_ACCESS_CODE` | Optional in-browser test phone. Enable only in a private test environment; the TwiML App's Voice URL must be the environment's `/incoming-call` URL. |
 | `ALLOWED_CALLERS` | Comma-separated numbers allowed to call. Blank means anyone. |
 | `MAX_CALL_MINUTES`, `MAX_CONCURRENT_CALLS` | Hard limits on call length and parallel calls. |
 

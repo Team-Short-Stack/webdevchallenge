@@ -22,6 +22,9 @@ const schema = z.object({
   TWILIO_API_KEY: optional(z.string()),
   TWILIO_API_SECRET: optional(z.string()),
   TWILIO_PHONE_NUMBER: optional(z.string()),
+  TWILIO_TWIML_APP_SID: optional(z.string().startsWith('AP')),
+  ENABLE_DEV_PHONE: z.preprocess(blankToUndefined, z.string().default('false')).transform((v) => v === 'true'),
+  DEV_PHONE_ACCESS_CODE: optional(z.string().min(16)),
 
   /** Comma-separated E.164 numbers allowed to call. Empty means anyone can call. */
   ALLOWED_CALLERS: z.preprocess(blankToUndefined, z.string().default('')),
@@ -49,6 +52,9 @@ export interface Config {
   twilioApiKey: string | undefined;
   twilioApiSecret: string | undefined;
   twilioPhoneNumber: string | undefined;
+  twilioTwimlAppSid: string | undefined;
+  enableDevPhone: boolean;
+  devPhoneAccessCode: string | undefined;
   allowedCallers: string[];
   maxCallMinutes: number;
   maxConcurrentCalls: number;
@@ -81,6 +87,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       throw new Error(`VOICE_TRANSPORT=tac requires: ${missing.join(', ')}.`);
     }
   }
+  if (e.ENABLE_DEV_PHONE && (!e.TWILIO_TWIML_APP_SID || !e.DEV_PHONE_ACCESS_CODE)) {
+    throw new Error('ENABLE_DEV_PHONE=true requires TWILIO_TWIML_APP_SID and DEV_PHONE_ACCESS_CODE (at least 16 characters).');
+  }
   return {
     port: e.PORT,
     isProduction,
@@ -95,6 +104,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     twilioApiKey: e.TWILIO_API_KEY,
     twilioApiSecret: e.TWILIO_API_SECRET,
     twilioPhoneNumber: e.TWILIO_PHONE_NUMBER,
+    twilioTwimlAppSid: e.TWILIO_TWIML_APP_SID,
+    enableDevPhone: e.ENABLE_DEV_PHONE,
+    devPhoneAccessCode: e.DEV_PHONE_ACCESS_CODE,
     allowedCallers: e.ALLOWED_CALLERS.split(',')
       .map((n) => n.trim())
       .filter(Boolean),

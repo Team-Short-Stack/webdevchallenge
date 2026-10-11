@@ -1,4 +1,5 @@
 import './style.css';
+import type { Device as TwilioDevice } from '@twilio/voice-sdk';
 import { STAGE_LABELS, type ClientMessage, type ServerMessage, type Stage } from '../../shared/protocol.js';
 import { createScene } from './scene.js';
 import { initialState } from './state.js';
@@ -32,12 +33,56 @@ if (!scene) {
 
 const ui = createUi(appRoot, {
   onNewCall: startNewCall,
+  async onDevPhone(accessCode) {
+    if (!accessCode) {
+      ui.setDevPhoneActive(false, 'Enter the Sandbox access code first.');
+      return;
+    }
+    try {
+      ui.setDevPhoneActive(false, 'Connecting to Twilio…');
+      const { Device } = await import('@twilio/voice-sdk');
+      const response = await fetch('/api/dev-phone/token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ accessCode }),
+      });
+      const data = await response.json() as { token?: string; phoneNumber?: string; error?: string };
+      if (!response.ok || !data.token || !data.phoneNumber) throw new Error(data.error ?? 'Dev Phone is not configured.');
+      devDevice?.destroy();
+      devDevice = new Device(data.token);
+      devDevice.on('error', (error) => ui.setDevPhoneActive(false, error.message));
+      const call = await devDevice.connect({ params: { To: data.phoneNumber } });
+      activeDevCall = call;
+      call.on('accept', () => ui.setDevPhoneActive(true, `Connected to ${data.phoneNumber}.`));
+      call.on('disconnect', () => {
+        activeDevCall = null;
+        devDevice?.destroy();
+        devDevice = null;
+        ui.setDevPhoneActive(false, 'Call ended.');
+      });
+      call.on('cancel', () => ui.setDevPhoneActive(false, 'Call cancelled.'));
+      ui.setDevPhoneActive(true, `Calling ${data.phoneNumber}…`);
+    } catch (error) {
+      devDevice?.destroy();
+      devDevice = null;
+      ui.setDevPhoneActive(false, error instanceof Error ? error.message : 'Could not start the test call.');
+    }
+  },
+  onHangupDevPhone() {
+    activeDevCall?.disconnect();
+    activeDevCall = null;
+    devDevice?.destroy();
+    devDevice = null;
+    ui.setDevPhoneActive(false, 'Call ended.');
+  },
   onGetStarted() {
     whirr.pause();
     playCue(allonsy);
     scene?.goToLolzitron();
   },
 });
+let devDevice: TwilioDevice | null = null;
+let activeDevCall: ReturnType<TwilioDevice['connect']> extends Promise<infer T> ? T | null : null = null;
 const render = () => ui.render(state, scene?.focusedStage ?? null);
 
 let socket: WebSocket | null = null;
@@ -160,6 +205,12 @@ async function loadConfig() {
     }
   } catch {
     /* the number is optional */
+  }
+  try {
+    const res = await fetch('/api/dev-phone/config');
+    ui.setDevPhoneVisible(res.ok);
+  } catch {
+    ui.setDevPhoneVisible(false);
   }
 }
 

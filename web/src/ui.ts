@@ -22,9 +22,11 @@ export interface UiApi {
   showWelcome(): void;
   render(state: AppState, focusedStage: Stage | null): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
+  setDevPhoneVisible(visible: boolean): void;
+  setDevPhoneActive(active: boolean, status: string): void;
 }
 
-export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
+export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void; onDevPhone(accessCode: string): void; onHangupDevPhone(): void }): UiApi {
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
   const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
@@ -33,9 +35,19 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
     ticketsPanel,
   );
   const toastHost = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
+  const devPhone = el('aside', { class: 'dev-phone', 'aria-label': 'Computer test phone' });
+  const accessCode = el('input', { class: 'dev-phone-code', type: 'password', placeholder: 'Sandbox access code', autocomplete: 'off', 'aria-label': 'Sandbox access code' });
+  const devPhoneButton = el('button', { class: 'button dev-phone-button', type: 'button' }, 'Call from this computer');
+  const devPhoneStatus = el('span', { class: 'dev-phone-status', role: 'status' }, '');
+  devPhone.append(accessCode, devPhoneButton, devPhoneStatus);
   const endHost = el('div', { class: 'end', hidden: '' });
 
-  root.append(promptHost, ticketsMenu, toastHost, endHost);
+  root.append(promptHost, devPhone, ticketsMenu, toastHost, endHost);
+  devPhone.hidden = true;
+  devPhoneButton.addEventListener('click', () => {
+    if (devPhoneButton.dataset.active === 'true') handlers.onHangupDevPhone();
+    else handlers.onDevPhone(accessCode.value);
+  });
 
   const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
     el('div', { class: 'slip' },
@@ -171,6 +183,12 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
   }
 
   return {
+    setDevPhoneVisible(visible) { devPhone.hidden = !visible; },
+    setDevPhoneActive(active, status) {
+      devPhoneButton.dataset.active = String(active);
+      devPhoneButton.textContent = active ? 'Hang up test call' : 'Call from this computer';
+      devPhoneStatus.textContent = status;
+    },
     showWelcome() {
       if (!welcome.open) welcome.showModal();
     },
