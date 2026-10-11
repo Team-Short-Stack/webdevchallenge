@@ -1,5 +1,5 @@
 {
-  "name": "help-desk-from-hell",
+  "name": "universal-help-care",
   "version": "0.1.0",
   "private": true,
   "description": "A voice-driven help desk that makes callers pass absurd tests before they can file a ticket. Twilio + OpenAI Realtime + three.js.",

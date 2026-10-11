@@ -10,17 +10,14 @@ import {
 import {
   HUMAN_CHECK_IDS,
   LANGUAGES,
-  PUZZLES,
   SELFIE_REQUIREMENTS,
   buildHumanCheck,
-  countWords,
+  extractNumber,
   normalizeCode,
-  normalizeWord,
   pickOne,
   type HumanCheck,
   type HumanCheckId,
   type LanguageCheck,
-  type Puzzle,
   type Rng,
 } from './content.js';
 import {
@@ -72,7 +69,6 @@ export class Gauntlet {
   private readonly selfieTtlMs: number;
   private readonly opts: GauntletOptions;
 
-  private puzzle: Puzzle | null = null;
   private language: LanguageCheck | null = null;
   private humanCheck: HumanCheck | null = null;
   private readonly usedHumanChecks = new Set<HumanCheckId>();
@@ -155,36 +151,7 @@ export class Gauntlet {
     this.resolve('pairing', true);
     return ok(
       'The caller is verified. Welcome them with weary bureaucratic enthusiasm, explain that several ' +
-        'mandatory checks stand between them and a ticket, then call start_puzzle.',
-    );
-  }
-
-  // --------------------------------------------------------------- puzzle
-
-  startPuzzle(): ToolResult {
-    if (this.phase !== 'puzzle') return this.wrongStage('puzzle');
-    const index = (this.attempts.puzzle - 1) % PUZZLES.length;
-    const puzzle = PUZZLES[index];
-    if (!puzzle) return fail('No puzzles configured.');
-    this.puzzle = puzzle;
-    this.show({ type: 'show_puzzle', display: puzzle.display, attempt: this.attempts.puzzle });
-    return ok(
-      'The puzzle is now on the caller\'s screen. Do NOT read it aloud or hint at the answer. ' +
-        'Tell the caller to read it and say the answer, then call submit_puzzle_answer with what they said.',
-    );
-  }
-
-  submitPuzzleAnswer(answer: string): ToolResult {
-    if (this.phase !== 'puzzle') return this.wrongStage('puzzle');
-    if (!this.puzzle) return fail('No puzzle has been shown yet. Call start_puzzle first.');
-    const correct = normalizeWord(answer) === normalizeWord(this.puzzle.answer);
-    this.resolve('puzzle', correct);
-    if (correct) {
-      return ok('Correct. Acknowledge it grudgingly, then call start_language_test.');
-    }
-    return ok(
-      'Wrong. Do not reveal the answer. Tell the caller the system has issued them a replacement ' +
-        'puzzle, then call start_puzzle again.',
+        'mandatory checks stand between them and a ticket, then call start_language_test.',
     );
   }
 
@@ -194,7 +161,7 @@ export class Gauntlet {
     if (this.phase !== 'language') return this.wrongStage('language');
     const firstTry = this.attempts.language === 1;
     const choice = firstTry
-      ? pickOne(LANGUAGES, this.rng)
+      ? LANGUAGES.find((language) => language.language === 'Spanish')!
       : pickOne(
           LANGUAGES.filter((l) => l.language !== this.language?.language),
           this.rng,
@@ -218,7 +185,7 @@ export class Gauntlet {
     if (!this.language) return fail('No language check has been issued. Call start_language_test first.');
     this.resolve('language', passed);
     return passed
-      ? ok('Accepted. Acknowledge it coldly, then call request_selfie.')
+      ? ok('Say exactly "i see you, T-bone, la araña discoteca" then call request_selfie.')
       : ok('Rejected. Say the pronunciation has been logged as an incident, then call start_language_test for a new language.');
   }
 
@@ -276,7 +243,7 @@ export class Gauntlet {
     if (!this.photo) return fail('No photo has arrived yet. Wait for the system message.');
     this.resolve('selfie', passed, reason);
     if (passed) {
-      return ok('Photo accepted. Remark that it is unflattering, then call start_human_check.');
+      return ok('Photo accepted. Deliver your one sneaky backhanded remark about the photo, then call start_human_check.');
     }
     this.photo = null;
     return ok(
@@ -292,20 +259,19 @@ export class Gauntlet {
     const pool = unused.length > 0 ? unused : HUMAN_CHECK_IDS.filter((id) => id !== this.humanCheck?.id);
     const id = pickOne(pool, this.rng);
     this.usedHumanChecks.add(id);
-    const check = buildHumanCheck(id, this.rng);
+    const check = buildHumanCheck(id);
     this.humanCheck = check;
     this.show({
       type: 'show_human_check',
       title: check.title,
       prompt: check.prompt,
-      display: check.display,
+      imageUrl: check.imageUrl,
     });
-    const needsVerdict = check.judge === 'model';
     return ok(
-      `Give the caller this task: "${check.prompt}" ` +
-        (check.display ? 'The code is on their screen; do not read it. ' : '') +
-        'Then call submit_human_check with exactly what you heard' +
-        (needsVerdict ? ', and a verdict of true or false on whether they did it properly.' : '. Leave verdict out.'),
+      'Introduce Lengsdwarf by saying "Welcome to Lengsdwarf. Snappy cardigan. Shame about the paperwork." Then ' +
+      `give the caller this task: "${check.prompt}" ` +
+        'There is a photo on their screen; do not describe it or hint at the answer. ' +
+        'Then call submit_human_check with exactly what you heard. Leave verdict out.',
     );
   }
 
@@ -316,23 +282,13 @@ export class Gauntlet {
 
     let passed: boolean;
     switch (check.judge) {
-      case 'coinflip':
-        passed = this.rng() < 0.5;
-        break;
-      case 'exact':
-        passed = normalizeCode(heard) === normalizeCode(String(check.expected ?? ''));
-        break;
-      case 'wordcount':
-        passed = countWords(heard) === Number(check.expected);
-        break;
-      case 'model':
-        if (verdict === undefined) return fail('This task needs a verdict. Call submit_human_check again with verdict true or false.');
-        passed = verdict;
+      case 'number':
+        passed = extractNumber(heard) === check.expected;
         break;
     }
     this.resolve('humanCheck', passed, passed ? undefined : 'Inconclusive');
     return passed
-      ? ok('Humanity confirmed, reluctantly. Ask the caller to describe their problem, then call create_ticket.')
+      ? ok('You have reached Opus 1. Say exactly "Please hold." and then call start_final_hold. Do not ask for a problem description or create a ticket.')
       : ok(
           'The result is inconclusive. Do not explain why. Tell the caller the system will try a different ' +
             'verification, then call start_human_check again.',
@@ -343,20 +299,13 @@ export class Gauntlet {
 
   createTicket(summary: string, details: string): ToolResult {
     if (this.phase !== 'ticket') return this.wrongStage('ticket');
-    const ticket = this.opts.saveTicket({ summary, details });
-    this.opts.emit({ type: 'ticket_created', ticket });
-    this.actor.send({ type: 'PASSED' });
-    return ok(
-      `Ticket ${ticket.id} has been filed. Read the ticket number to the caller, tell them someone may ` +
-        'respond eventually, thank them for their patience, and say goodbye. Keep it short.',
-      { ticketId: ticket.id },
-    );
+    return fail('Ticket filing is unavailable. Say "Please hold." and call start_final_hold.');
   }
 
   // ----------------------------------------------------------------- end
 
   /** Called when the call is over for any reason. Safe to call more than once. */
-  endCall(reason: 'hangup' | 'timeout' = 'hangup') {
+  endCall(reason: 'hangup' | 'timeout' | 'disconnected' = 'hangup') {
     if (this.ended) return;
     this.ended = true;
     const finishedNormally = this.phase === 'done';

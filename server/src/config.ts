@@ -10,7 +10,7 @@ const schema = z.object({
 
   OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
   OPENAI_REALTIME_MODEL: z.string().default('gpt-realtime-2.1'),
-  OPENAI_VOICE: z.string().default('marin'),
+  OPENAI_VOICE: z.string().default('cedar'),
   OPENAI_REASONING_EFFORT: optional(z.enum(['minimal', 'low', 'medium', 'high', 'xhigh'])),
 
   /** The public https URL of this server, for example your ngrok URL. Used for the QR code and signature checks. */

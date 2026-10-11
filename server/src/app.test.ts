@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
 import twilio from 'twilio';
-import { PUZZLES } from './content.js';
 import { loadConfig } from './config.js';
 import { buildApp } from './app.js';
 import type { CallSession } from './sessions.js';
@@ -38,8 +37,6 @@ function signedCall(params: Record<string, string>, signed = true) {
 function toSelfie(session: CallSession): string {
   const g = session.gauntlet;
   g.pair(session.code);
-  g.startPuzzle();
-  g.submitPuzzleAnswer(PUZZLES[0]!.answer);
   g.startLanguage();
   g.reportLanguageResult(true);
   g.requestSelfie();

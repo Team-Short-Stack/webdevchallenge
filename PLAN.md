@@ -25,7 +25,7 @@ Never run against the real services, and not yet seen:
 
 - [ ] Follow the README quick start: `.env`, `npm run build`, ngrok, Twilio webhook, `npm run dev`.
 - [ ] Verify your phone number in Twilio (trial accounts only accept verified callers) or upgrade the account.
-- [ ] Call, hear the greeting, say the code. Done when the laptop moves from Mercury to Venus.
+- [ ] Call, hear the greeting, say the code. Done when the laptop moves from Lolzitron to Translatopia.
 - [ ] If the agent stays silent after the greeting, check the server log for `connected to OpenAI Realtime` and
       `realtime error`, and confirm the API key has Realtime access.
 - [ ] Walk the whole gauntlet once. Done when a ticket appears in the side list.
@@ -54,8 +54,6 @@ Never run against the real services, and not yet seen:
 
 - [ ] Look at the real fonts. If Doto does not suit the LED digits, change `--font-led` in `style.css`.
 - [ ] Failure moments: a stronger reaction when a test fails (planet shake exists; consider a flash on the sign).
-- [ ] Optional typed puzzle answer on the laptop. The protocol already has `typed_answer`; the server handles it;
-      add a text box in `ui.ts`.
 - [ ] Narrow screens: the ticket list hides below 960px. Add a small ticket count to the sign if wanted.
 - [ ] Tidy `index.html` meta and add a proper favicon.
 
@@ -64,7 +62,7 @@ Never run against the real services, and not yet seen:
 - [ ] Turn the headless screenshot walkthrough into a script in the repo (drive a `Gauntlet` through every stage
       with `buildApp`, load the page in Playwright, screenshot each stage).
 - [ ] A test for the laptop WebSocket: hello, snapshot, resume with `sessionId`, ticket broadcast with `mine`.
-- [ ] A test that tool results never contain a puzzle answer or CAPTCHA code.
+- [ ] A test that tool results never contain an answer the model is only supposed to judge, not know in advance.
 
 ## 6. Hosting (optional)
 
@@ -83,7 +81,9 @@ Never run against the real services, and not yet seen:
 
 ## Open questions
 
-- Is the Mercury to Saturn mapping what you want?
+- Venus/the word puzzle is gone, and all five remaining planets now have silly names instead of real-planet
+  ones: Lolzitron (pairing), Translatopia (language), Snapturn (selfie), Lengsdwarf (human check, deliberately
+  the smallest), Opus 1 (ticket).
 - Should a failed test also flash the sign, not just shake the planet?
 - Show every caller's tickets (current behavior) or only the current call's?
-- Photo as a card beside Mars (current behavior) or mapped onto the planet?
+- Photo as a card beside Snapturn (current behavior) or mapped onto the planet?

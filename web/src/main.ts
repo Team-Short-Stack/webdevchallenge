@@ -11,15 +11,34 @@ const sceneRoot = document.getElementById('scene') as HTMLElement;
 const labelRoot = document.getElementById('labels') as HTMLElement;
 const appRoot = document.getElementById('app') as HTMLElement;
 
-const scene = createScene(sceneRoot, labelRoot);
+const whirr = new Audio('/audio/whirr.m4a');
+const allonsy = new Audio('/audio/allonsy.m4a');
+
+function playCue(audio: HTMLAudioElement) {
+  audio.currentTime = 0;
+  void audio.play().catch((error: unknown) => console.warn('Audio cue could not play', error));
+}
+
+const scene = createScene(sceneRoot, labelRoot, () => {
+  allonsy.pause();
+  playCue(whirr);
+  ui.showWelcome();
+}, () => render());
 if (!scene) {
   document.body.classList.add('no-webgl');
   sceneRoot.removeAttribute('aria-hidden');
   sceneRoot.textContent = 'Your browser cannot draw the planets. The help desk still works.';
 }
 
-const ui = createUi(appRoot, { onNewCall: startNewCall });
-const render = () => ui.render(state);
+const ui = createUi(appRoot, {
+  onNewCall: startNewCall,
+  onGetStarted() {
+    whirr.pause();
+    playCue(allonsy);
+    scene?.goToLolzitron();
+  },
+});
+const render = () => ui.render(state, scene?.focusedStage ?? null);
 
 let socket: WebSocket | null = null;
 let retries = 0;
@@ -87,7 +106,6 @@ function handle(message: ServerMessage) {
       state.paired = true;
       ui.toast('Verified. Barely.', 'pass');
       break;
-    case 'show_puzzle':
     case 'show_language_prompt':
     case 'show_qr':
     case 'show_human_check':

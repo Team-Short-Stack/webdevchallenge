@@ -1,6 +1,7 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
 import type { ServerMessage, Ticket } from '../../shared/protocol.js';
+import { PAIRING_CODES, normalizeCode } from './content.js';
 import { Gauntlet } from './engine.js';
 
 /** In-memory ticket list, shared by every laptop. Swap for SQLite if tickets should survive restarts. */
@@ -11,7 +12,7 @@ export class TicketStore {
   add(draft: { summary: string; details: string }): Ticket {
     this.counter += 1;
     const ticket: Ticket = {
-      id: `HDFH-${String(this.counter).padStart(4, '0')}`,
+      id: `UHC-${String(this.counter).padStart(4, '0')}`,
       summary: draft.summary.slice(0, 200),
       details: draft.details.slice(0, 2000),
       createdAt: new Date().toISOString(),
@@ -97,7 +98,9 @@ export class Registry {
   create(): CallSession {
     let code: string;
     do {
-      code = String(randomInt(0, 10_000)).padStart(4, '0');
+      const picked = PAIRING_CODES[randomInt(0, PAIRING_CODES.length)];
+      if (picked === undefined) throw new Error('PAIRING_CODES is empty.');
+      code = picked;
     } while (this.findByCode(code));
     const session = new CallSession(
       code,
@@ -115,9 +118,9 @@ export class Registry {
 
   /** Only sessions still waiting to be paired can be found by their code. */
   findByCode(spoken: string): CallSession | undefined {
-    const digits = spoken.replace(/\D/g, '');
+    const code = normalizeCode(spoken);
     for (const session of this.sessions.values()) {
-      if (session.code === digits && !session.gauntlet.isEnded && !session.phone) return session;
+      if (session.code === code && !session.gauntlet.isEnded && !session.phone) return session;
     }
     return undefined;
   }

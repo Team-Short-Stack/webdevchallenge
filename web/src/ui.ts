@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { PLANETS, STAGES, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
+import { PAIRING_ACRONYMS, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
 import type { AppState } from './state.js';
 
 type Child = Node | string | null | undefined | false;
@@ -19,28 +19,36 @@ function el<K extends keyof HTMLElementTagNameMap>(
 }
 
 export interface UiApi {
-  render(state: AppState): void;
+  showWelcome(): void;
+  render(state: AppState, focusedStage: Stage | null): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
 }
 
-export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): UiApi {
-  const ledNumber = el('span', { class: 'led', 'aria-hidden': 'true' }, '1');
-  const signStage = el('strong', {}, 'Connecting');
-  const signPlanet = el('span', {}, '');
-  const sign = el(
-    'header',
-    { class: 'sign' },
-    el('p', { class: 'sign-label' }, 'Now serving'),
-    el('div', { class: 'sign-row' }, ledNumber, el('div', { class: 'sign-text' }, signStage, signPlanet)),
-  );
-
+export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
   const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
+  const ticketsMenu = el('details', { class: 'tickets-menu' },
+    el('summary', {}, 'Tickets'),
+    ticketsPanel,
+  );
   const toastHost = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
   const endHost = el('div', { class: 'end', hidden: '' });
 
-  root.append(sign, promptHost, ticketsPanel, toastHost, endHost);
+  root.append(promptHost, ticketsMenu, toastHost, endHost);
+
+  const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
+    el('div', { class: 'slip' },
+      el('h1', { id: 'welcome-title' }, 'welcome to universal help care.'),
+      el('p', { id: 'welcome-message', class: 'summary' }, "let's just make sure you are not a dalek."),
+      el('button', { class: 'button', type: 'button', autofocus: '' }, 'get started'),
+    ),
+  );
+  root.append(welcome);
+  welcome.querySelector('button')?.addEventListener('click', () => {
+    welcome.close();
+    handlers.onGetStarted();
+  });
 
   let promptKey = '';
   let countdownTimer: number | undefined;
@@ -76,13 +84,14 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
           el('p', { class: 'phone' }, number),
           el('p', { class: 'hint' }, 'When the agent answers, say this code:'),
           el('p', { class: 'code', 'aria-label': `Code ${code.split('').join(' ')}` }, code.split('').join(' ')),
+          PAIRING_ACRONYMS[code] ? el('p', { class: 'hint' }, PAIRING_ACRONYMS[code]) : null,
         ),
       };
     }
     if (state.phase === 'ticket') {
       return {
         key: 'ticket',
-        node: slip('File your ticket', el('p', { class: 'hint' }, 'Tell the agent what is wrong. Be specific; it will not help.')),
+        node: slip('Please hold', el('p', { class: 'hint' }, 'Your call is important to us.')),
       };
     }
     if (state.phase === 'selfie' && state.photo) {
@@ -95,17 +104,6 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
     }
 
     switch (prompt.type) {
-      case 'show_puzzle': {
-        const long = prompt.display.length > 14;
-        return {
-          key: `puzzle:${prompt.display}`,
-          node: slip(
-            prompt.attempt > 1 ? `Word puzzle, replacement ${prompt.attempt - 1}` : 'Word puzzle',
-            el('p', { class: long ? 'puzzle puzzle-long' : 'puzzle' }, prompt.display),
-            el('p', { class: 'hint' }, 'Say the answer to the agent.'),
-          ),
-        };
-      }
       case 'show_language_prompt':
         return {
           key: `language:${prompt.language}`,
@@ -150,30 +148,17 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
       }
       case 'show_human_check':
         return {
-          key: `human:${prompt.title}:${prompt.display ?? ''}`,
+          key: `human:${prompt.title}:${prompt.imageUrl ?? ''}`,
           node: slip(
             prompt.title,
-            prompt.display ? captcha(prompt.display) : null,
-            el('p', { class: 'summary' }, prompt.display ? 'Read the code to the agent, one letter at a time.' : prompt.prompt),
-            el('p', { class: 'hint' }, 'Do it out loud. The agent is listening.'),
+            prompt.imageUrl
+              ? el('img', { class: 'human-check-photo', src: prompt.imageUrl, alt: 'Photo for the humanity check question' })
+              : null,
+            el('p', { class: 'summary' }, prompt.prompt),
+            el('p', { class: 'hint' }, 'Say the answer out loud. The agent is listening.'),
           ),
         };
     }
-  }
-
-  function captcha(code: string): HTMLElement {
-    const wrap = el('p', { class: 'captcha', 'aria-label': 'Distorted code' });
-    [...code].forEach((ch, i) => {
-      const r = ((i * 37) % 23) - 11;
-      const y = ((i * 53) % 13) - 6;
-      const skew = ((i * 29) % 21) - 10;
-      const span = el('span', {}, ch);
-      span.style.setProperty('--r', `${r}deg`);
-      span.style.setProperty('--y', `${y}px`);
-      span.style.setProperty('--s', `${skew}deg`);
-      wrap.append(span);
-    });
-    return wrap;
   }
 
   function ticketSlip(t: Ticket): HTMLElement {
@@ -187,22 +172,13 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
   }
 
   return {
-    render(state) {
-      // Sign
-      const index = (STAGES as readonly string[]).indexOf(state.phase);
-      if (index >= 0) {
-        const stage = STAGES[index] as Stage;
-        ledNumber.textContent = String(index + 1);
-        signStage.textContent = STAGE_LABELS[stage];
-        signPlanet.textContent = `${PLANETS[stage]}${state.attempts[stage] > 1 ? `, attempt ${state.attempts[stage]}` : ''}`;
-      } else {
-        ledNumber.textContent = '--';
-        signStage.textContent = state.phase === 'done' ? 'Served' : 'Call ended';
-        signPlanet.textContent = state.phase === 'done' ? 'All planets visited' : 'Nobody was served';
-      }
-
+    showWelcome() {
+      if (!welcome.open) welcome.showModal();
+    },
+    render(state, focusedStage) {
       // Prompt (rebuilt only when it changes, so the QR code and countdown don't flicker)
       const next = buildPrompt(state);
+      promptHost.hidden = state.phase === 'pairing' && focusedStage !== 'pairing';
       if (next.key !== promptKey) {
         promptKey = next.key;
         if (!next.key.startsWith('qr:')) window.clearInterval(countdownTimer);
@@ -225,9 +201,9 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void }): Ui
           el(
             'div',
             { class: 'slip' },
-            el('h1', {}, state.ended === 'timeout' ? 'Your time is up' : 'The call ended'),
-            el('p', { class: 'hint' }, 'You were not served. This is normal.'),
-            el('button', { class: 'button', type: 'button' }, 'Start a new call'),
+            el('h1', {}, state.ended === 'disconnected' ? 'Call failed' : state.ended === 'timeout' ? 'Your time is up' : 'The call ended'),
+            el('p', { class: 'hint' }, state.ended === 'disconnected' ? 'Unexpectedly disconnected. Your ticket was not filed. Please call again.' : 'You were not served. This is normal.'),
+            el('button', { class: 'button', type: 'button' }, state.ended === 'disconnected' ? 'Call again' : 'Start a new call'),
           ),
         );
         endHost.querySelector('button')?.addEventListener('click', handlers.onNewCall);

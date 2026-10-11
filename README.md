@@ -1,4 +1,4 @@
-# Help Desk From Hell
+# Universal Help Care
 
 A phone-driven help desk that makes callers pass absurd tests before they can file a ticket. The caller phones a
 Twilio number and talks to an OpenAI voice agent. A three.js scene of planets on a laptop shows their progress:
@@ -6,12 +6,11 @@ each stage of the gauntlet belongs to its own planet.
 
 | Stage | Planet | What the caller does |
 | --- | --- | --- |
-| Pairing | Mercury | Says the 4-digit code shown on the laptop |
-| Word puzzle | Venus | Reads a scrambled word or riddle on screen and says the answer |
-| Language | Earth | Says a phrase in another language |
-| Selfie | Mars | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
-| Human check | Jupiter | Does one random task (sing, make a modem noise, read a CAPTCHA, ...) |
-| Ticket | Saturn | Describes the problem; the agent files a ticket |
+| Pairing | Lolzitron | Spells out the silly code shown on the laptop |
+| Language | Translatopia | Says a phrase in another language |
+| Selfie | Snapturn | Scans a QR code on the laptop and takes a selfie meeting a silly requirement |
+| Human check | Lengsdwarf | Answers a fashion-trivia question about a photo shown on the laptop |
+| Ticket | Opus 1 | Describes the problem; the agent files a ticket |
 
 ## What it looks like
 
@@ -24,7 +23,7 @@ because the web fonts could not load where they were captured.
 ```
 phone call --> Twilio --> your server --> OpenAI Realtime (voice agent + tools)
                               |
-laptop browser (three.js) <---+   WebSocket: puzzles, results, selfie, tickets
+laptop browser (three.js) <---+   WebSocket: prompts, results, selfie, tickets
 phone camera --scans QR on laptop--> selfie page --> your server --> voice agent judges the photo
 ```
 
@@ -38,6 +37,7 @@ You need Node 22+, a Twilio account with a voice number, an OpenAI API key with 
 value comes from.
 
 ```bash
+nvm use                       # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
 cp .env.example .env          # then fill in OPENAI_API_KEY and the rest
 npm run build                 # builds the web app that the server serves
@@ -49,8 +49,8 @@ ngrok http 5050               # copy the https URL it prints
 2. In the Twilio console, open your number, and under **Voice Configuration > A call comes in** set a webhook
    (HTTP POST) to `https://YOUR-NGROK-URL/incoming-call`.
 3. Start the server: `npm run dev` (or `npm start`).
-4. Open <http://localhost:5050> on your laptop. You will see a 4-digit code.
-5. Call your Twilio number from your phone and say the code.
+4. Open <http://localhost:5050> on your laptop. You will see a short code.
+5. Call your Twilio number from your phone and spell out the code.
 
 Notes:
 
@@ -91,8 +91,8 @@ The QR code points at `PUBLIC_BASE_URL`, so the selfie page is served from the b
 ## Docker
 
 ```bash
-docker build -t help-desk-from-hell .
-docker run --env-file .env -p 5050:5050 help-desk-from-hell
+docker build -t universal-help-care .
+docker run --env-file .env -p 5050:5050 universal-help-care
 ```
 
 In production (`NODE_ENV=production`, set by the image) `TWILIO_AUTH_TOKEN` is required.

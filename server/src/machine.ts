@@ -12,7 +12,7 @@ export type MachineEvent =
   | { type: 'HANGUP' };
 
 function emptyAttempts(): Attempts {
-  return { pairing: 0, puzzle: 0, language: 0, selfie: 0, humanCheck: 0, ticket: 0 };
+  return { pairing: 0, language: 0, selfie: 0, humanCheck: 0, ticket: 0 };
 }
 
 /**
