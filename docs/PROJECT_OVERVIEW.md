@@ -25,7 +25,7 @@ and reports its judgments through server-defined tools; it cannot skip ahead by 
 | HTTP and WebSockets | Fastify, `@fastify/websocket` | Serves API routes, Twilio webhooks, media streams, and the desktop session socket. |
 | Call provider | Twilio Programmable Voice | Receives phone calls and carries audio between the caller and the app. |
 | Voice transport | Twilio Agent Connect (TAC), with a `legacy` option | TAC handles Twilio voice integration when `VOICE_TRANSPORT=tac`; the legacy transport remains available. Both use the app's voice-call logic. |
-| Browser phone | Twilio Voice JavaScript SDK | Optional Sandbox softphone using the computer's microphone and speakers. |
+| Browser phone | Twilio Voice JavaScript SDK | Optional access-code-protected Production softphone using the computer's microphone and speakers. |
 | Voice agent | OpenAI Agents SDK Realtime and OpenAI Realtime | Streams audio, speaks as Gladys, calls server tools, and reviews selfie images. |
 | Call workflow | XState | Enforces the ordered verification stages and their retry/terminal states. |
 | Web interface | TypeScript, Vite, Three.js | Displays the planetary scene, prompts, QR code, photos, and ticket panel. |
@@ -78,8 +78,8 @@ flowchart LR
 
 - **Local:** run the Node server and expose its webhook/WebSocket address with ngrok. Twilio must be able to reach
   the public HTTPS URL.
-- **Sandbox:** use a Railway environment with `VOICE_TRANSPORT=tac`. The browser phone is separately gated by
-  `ENABLE_DEV_PHONE`, a TwiML App SID, and an access code; keep it disabled in Production.
+- **Production:** deploy `main` to the single Railway Production environment with `VOICE_TRANSPORT=tac`. The browser phone is separately gated by
+  `ENABLE_DEV_PHONE`, a TwiML App SID, and a private access code; disable it when browser-phone testing is finished.
 - **Production suitability:** the server needs a stable public HTTPS endpoint and long-lived WebSocket support.
 - **Cost and safety:** Twilio call minutes and OpenAI Realtime usage are billable. Keep caller restrictions,
   concurrency and call-duration limits configured for any publicly reachable deployment.

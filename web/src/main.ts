@@ -54,7 +54,7 @@ const ui = createUi(appRoot, {
   onNewCall: startNewCall,
   async onDevPhone(accessCode) {
     if (!accessCode) {
-      ui.setDevPhoneActive(false, 'Enter the Sandbox access code first.');
+      ui.setDevPhoneActive(false, 'Enter the Production access code first.');
       return;
     }
     if (devPhoneConnecting || activeDevCall) return;

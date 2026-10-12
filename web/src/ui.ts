@@ -40,7 +40,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
   );
   const toastHost = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
   const devPhone = el('aside', { class: 'dev-phone', 'aria-label': 'Computer test phone' });
-  const accessCode = el('input', { class: 'dev-phone-code', type: 'password', placeholder: 'Sandbox access code', autocomplete: 'off', 'aria-label': 'Sandbox access code' });
+  const accessCode = el('input', { class: 'dev-phone-code', type: 'password', placeholder: 'Production access code', autocomplete: 'off', 'aria-label': 'Production access code' });
   const devPhoneButton = el('button', { class: 'button dev-phone-button', type: 'button' }, 'Call from this computer');
   const devPhoneStatus = el('span', { class: 'dev-phone-status', role: 'status' }, '');
   devPhone.append(accessCode, devPhoneButton, devPhoneStatus);

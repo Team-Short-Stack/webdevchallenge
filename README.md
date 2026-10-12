@@ -62,18 +62,18 @@ Notes:
 - Set `TWILIO_AUTH_TOKEN` to make the server reject requests that do not carry a valid Twilio signature.
   Set `ALLOWED_CALLERS` for any demo with a public number.
 
-## In-browser test phone (Sandbox)
+## In-browser test phone (Production)
 
 The app can place a test call from the browser, so you can use your computer's microphone and speakers
 instead of a physical phone. This uses Twilio's Voice JavaScript SDK and still runs the normal call flow
-through the app. It is intended for a private test environment such as the Railway `Sandbox` environment.
+through the app. This project uses a single Railway `Production` environment, including browser-phone testing protected by a private access code.
 Calls use Twilio and OpenAI and incur the usual usage charges.
 
 1. In Twilio Console, open your existing **TwiML App** under **Develop > Voice > TwiML Apps** (or create one).
 2. Set its Voice Request URL to the public URL of the app environment followed by `/incoming-call`, for
-   example `https://YOUR-SANDBOX-DOMAIN.up.railway.app/incoming-call`. Choose **HTTP POST** and save.
-   This is the TwiML App URL; reuse your existing Twilio number and credentials. Your phone number can keep its existing webhook. A TwiML App has one Voice Request URL: browser calls using that App SID will reach whichever environment that URL points to.
-3. In Railway, select the `Sandbox` environment and set these variables on the app service:
+   example `https://webdevchallenge-production.up.railway.app/incoming-call`. Choose **HTTP POST** and save.
+   This is the TwiML App URL; reuse your existing Twilio number and credentials. Set your phone number’s Voice webhook to that same Production URL (HTTP POST). A TwiML App has one Voice Request URL: browser calls using that App SID will reach whichever environment that URL points to.
+3. In Railway, select the `Production` environment and set these variables on the app service:
 
    ```text
    VOICE_TRANSPORT=tac
@@ -83,20 +83,22 @@ Calls use Twilio and OpenAI and incur the usual usage charges.
    ```
 
    `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY`, `TWILIO_API_SECRET`, `TWILIO_PHONE_NUMBER`, and
-   `TWILIO_AUTH_TOKEN` must also be set. The TAC transport requires these already. Keep the Dev Phone
-   variables out of Production and leave `ENABLE_DEV_PHONE=false` there.
-4. Deploy the Sandbox service and open its public app URL. The **Call from this computer** controls appear
+   `TWILIO_AUTH_TOKEN` must also be set. The TAC transport requires these already. Set `PUBLIC_BASE_URL=https://webdevchallenge-production.up.railway.app`
+   (or use the Railway domain reference described below).
+4. Deploy the Production service and open its public app URL. The **Call from this computer** controls appear
    only when the feature is enabled. Enter the access code, click the button, and allow microphone access
    when the browser asks. The status will show when the call connects; use the same button to hang up.
 5. Keep the app open during the call. The main screen displays the call's pairing code and prompts; speak
    into the computer microphone as you complete the stages.
 
 The token endpoint allows five incorrect access-code attempts per minute per IP address. Turn the feature
-off by setting `ENABLE_DEV_PHONE=false` in Sandbox when you finish testing.
+off by setting `ENABLE_DEV_PHONE=false` in Production when you finish testing.
 
 ## Configuration
 
-Use a single ignored `.env` for local configuration; both `npm run dev` and `npm start` read it. Railway uses service variables configured in each environment, so set the values directly in Sandbox. See `.env.example` for the full, commented list.
+Railway deploys `main` to Production. The Sandbox environment has been retired.
+
+Use a single ignored `.env` for local configuration; both `npm run dev` and `npm start` read it. Railway uses service variables configured in each environment, so set the values directly in Production. See `.env.example` for the full, commented list.
 
 | Variable | Purpose |
 | --- | --- |
@@ -106,7 +108,7 @@ Use a single ignored `.env` for local configuration; both `npm run dev` and `npm
 | `TWILIO_AUTH_TOKEN` | Enables Twilio signature checks. Required when `NODE_ENV=production`. |
 | `VOICE_TRANSPORT` | Voice integration selector: `legacy` (default) or `tac`. TAC uses the app's custom provider with the TAC Voice channel. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_API_KEY`, `TWILIO_API_SECRET`, `TWILIO_PHONE_NUMBER` | Required only for `VOICE_TRANSPORT=tac`; use a Twilio API key/secret in addition to the Auth Token. |
-| `ENABLE_DEV_PHONE`, `TWILIO_TWIML_APP_SID`, `DEV_PHONE_ACCESS_CODE` | Optional in-browser test phone. Enable only in a private test environment; the TwiML App's Voice URL must be the environment's `/incoming-call` URL. |
+| `ENABLE_DEV_PHONE`, `TWILIO_TWIML_APP_SID`, `DEV_PHONE_ACCESS_CODE` | Optional in-browser test phone. Use a private access code; the TwiML App’s Voice URL must be Production’s `/incoming-call` URL. |
 | `ALLOWED_CALLERS` | Comma-separated numbers allowed to call. Blank means anyone. |
 | `MAX_CALL_MINUTES`, `MAX_CONCURRENT_CALLS` | Hard limits on call length and parallel calls. |
 
@@ -166,12 +168,12 @@ Both `legacy` and `tac` are covered: browser pairing, incoming-call signatures, 
 
 The OpenAI SDK packages are pinned together through root `overrides`. TAC has an optional older Agents peer dependency; allowing mixed versions makes the Twilio transport emit tool events that the newer session cannot dispatch.
 
-For local Dev Phone testing, fill the ignored `.env` with `VOICE_TRANSPORT=tac`, `ENABLE_DEV_PHONE=true`, the Twilio account/auth token, API Key SID and matching secret, phone number, TwiML App SID, and a `DEV_PHONE_ACCESS_CODE` of at least 16 characters. Set `PUBLIC_BASE_URL` to your HTTPS tunnel URL. Use your existing TwiML App with its Voice request URL set to `<PUBLIC_BASE_URL>/incoming-call` (POST). For Railway Sandbox testing, set these same values in Sandbox service variables and use the Sandbox HTTPS domain as `PUBLIC_BASE_URL`. Build with `npm run build`, then start with `npm run dev`; open http://localhost:5050 and use the Dev Phone panel.
+For local Dev Phone testing, fill the ignored `.env` with `VOICE_TRANSPORT=tac`, `ENABLE_DEV_PHONE=true`, the Twilio account/auth token, API Key SID and matching secret, phone number, TwiML App SID, and a `DEV_PHONE_ACCESS_CODE` of at least 16 characters. Set `PUBLIC_BASE_URL` to your HTTPS tunnel URL. Use your existing TwiML App with its Voice request URL set to `<PUBLIC_BASE_URL>/incoming-call` (POST). For Railway Production testing, set these same values in Production service variables and use `https://webdevchallenge-production.up.railway.app` as `PUBLIC_BASE_URL`. Local phone testing temporarily requires routing both Twilio webhooks to the tunnel; restore both to Production afterward. Build with `npm run build`, then start with `npm run dev`; open http://localhost:5050 and use the Dev Phone panel.
 
 ### Calls disconnect immediately after the greeting
 
-Keep each environment's `PUBLIC_BASE_URL` pointed at that same environment. If Sandbox inherits the Production URL, its incoming-call webhook grants the call in Sandbox but sends the media WebSocket to Production, where the stream is rejected. The same mismatch sends final-hold callbacks to the wrong server.
+Keep Production’s `PUBLIC_BASE_URL`, the phone number’s Voice webhook, and the TwiML App’s Voice URL pointed at Production. Mixing a local tunnel with the deployed service can grant the call on one server and send its media WebSocket to another, where the stream is rejected. Final-hold callbacks also need to reach the same server.
 
-In Railway service variables, set `PUBLIC_BASE_URL` to `https://${{RAILWAY_PUBLIC_DOMAIN}}` so it follows that environment's public domain, then deploy the variable change. Keep the phone number's Voice webhook and the browser-phone TwiML App Voice URL pointed at the environment being tested, followed by `/incoming-call` (POST). Open that same environment's app page for its pairing code.
+In Railway service variables, set `PUBLIC_BASE_URL` to `https://${{RAILWAY_PUBLIC_DOMAIN}}` so it follows that environment's public domain, then deploy the variable change. Keep the phone number's Voice webhook and the browser-phone TwiML App Voice URL pointed at the environment being tested, followed by `/incoming-call` (POST). Open [the Production app](https://webdevchallenge-production.up.railway.app/) for its pairing code.
 
 Configuration now rejects mismatched Railway-generated domains at startup with an explicit error. Local ngrok and custom-domain configuration remain available.
