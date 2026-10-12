@@ -3,7 +3,7 @@
 export const STAGES = ['pairing', 'language', 'selfie', 'humanCheck', 'ticket'];
 export const PAIRING_ACRONYMS = {
     BRB: 'Be right back',
-    LOL: 'Laugh out loud',
+    LOL: 'Laughing out loud',
     OMG: 'Oh my gosh',
     TBH: 'To be honest',
     LMK: 'Let me know',
@@ -29,10 +29,10 @@ export const PAIRING_ACRONYMS = {
 };
 export const PLANETS = {
     pairing: 'Lolzitron',
-    language: 'Translatopia',
+    language: 'La Biblioteca',
     selfie: 'Snapturn',
     humanCheck: 'Lengsdwarf',
-    ticket: 'Opus 1',
+    ticket: 'LOMB',
 };
 export const STAGE_LABELS = {
     pairing: 'Identify yourself',
