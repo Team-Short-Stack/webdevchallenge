@@ -416,6 +416,17 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     }
 
     if (spec.ring) {
+      const cardiganSurface = new THREE.PlaneGeometry(spec.radius * 2.2, spec.radius * 2.2);
+      const cardigan = new THREE.Mesh(cardiganSurface, new THREE.MeshBasicMaterial({
+        map: new THREE.TextureLoader().load('/lomb-cardigan.png', (texture) => {
+          texture.colorSpace = THREE.SRGBColorSpace;
+          const image = texture.image as { width: number; height: number };
+          cardiganSurface.scale(image.width / image.height, 1, 1);
+        }),
+        transparent: true, alphaTest: 0.1, toneMapped: false,
+      }));
+      cardigan.name = 'lomb-cardigan';
+      mesh.add(cardigan);
       const surfaceMaterial = mesh.material as THREE.MeshStandardMaterial;
       surfaceMaterial.bumpMap = surfaceMaterial.map;
       surfaceMaterial.bumpScale = 0.045;
@@ -1021,6 +1032,11 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       p.mesh.scale.setScalar(scale);
 
       if (p.stage === 'ticket') {
+        const cardigan = p.mesh.getObjectByName('lomb-cardigan');
+        if (cardigan) {
+          cardigan.quaternion.copy(p.mesh.quaternion).invert().multiply(camera.quaternion);
+          cardigan.position.set(0, 0, SPECS.ticket.radius + 0.05).applyQuaternion(cardigan.quaternion);
+        }
         const orbit = reduceMotion ? 0.6 : t * Math.PI * 2 / 25;
         const radius = SPECS.ticket.radius * 1.61;
         trolley.position.set(Math.cos(orbit) * radius, Math.sin(orbit) * radius, 0.03);
