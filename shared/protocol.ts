@@ -9,7 +9,7 @@ export type Phase = Stage | 'done' | 'abandoned';
 
 export const PAIRING_ACRONYMS: Record<string, string> = {
   BRB: 'Be right back',
-  LOL: 'Laugh out loud',
+  LOL: 'Laughing out loud',
   OMG: 'Oh my gosh',
   TBH: 'To be honest',
   LMK: 'Let me know',
@@ -36,7 +36,7 @@ export const PAIRING_ACRONYMS: Record<string, string> = {
 
 export const PLANETS: Record<Stage, string> = {
   pairing: 'Lolzitron',
-  language: 'Translatopia',
+  language: 'La Biblioteca',
   selfie: 'Snapturn',
   humanCheck: 'Lengsdwarf',
   ticket: 'Opus 1',
