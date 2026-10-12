@@ -272,20 +272,36 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     scene.add(haze);
   }
 
+  const mustacheCanvas = document.createElement('canvas');
+  mustacheCanvas.width = 1024;
+  mustacheCanvas.height = 320;
+  const fur = mustacheCanvas.getContext('2d')!;
+  const furRandom = mulberry32(641);
+  for (const side of [-1, 1]) {
+    for (let strand = 0; strand < 5200; strand++) {
+      const distance = furRandom();
+      const startX = 512 + side * distance * 190;
+      const startY = 96 + furRandom() * 65;
+      const endX = 512 + side * (90 + distance * 370);
+      const endY = 175 + Math.sin(distance * Math.PI) * 50 - distance * 80 + furRandom() * 22;
+      const shade = Math.floor(25 + furRandom() * 60);
+      fur.strokeStyle = `rgba(${shade + 15},${shade},${Math.max(14, shade - 11)},0.6)`;
+      fur.lineWidth = 0.6 + furRandom() * 1.2;
+      fur.beginPath();
+      fur.moveTo(startX, startY);
+      fur.bezierCurveTo(startX + side * 60, startY - 28, endX - side * 80, endY + 26, endX, endY);
+      fur.stroke();
+    }
+  }
+  const mustacheTexture = new THREE.CanvasTexture(mustacheCanvas);
+  mustacheTexture.colorSpace = THREE.SRGBColorSpace;
   const mustacheMaterial = new THREE.MeshBasicMaterial({
-    color: '#35251e', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
+    map: mustacheTexture, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
   });
-  const mustacheLobes = [-1, 1].map((side) => {
-    const shape = new THREE.Shape();
-    shape.moveTo(0, 0);
-    shape.bezierCurveTo(side * 0.5, 0.65, side * 1.15, 0.2, side * 1.45, 0.05);
-    shape.bezierCurveTo(side * 1.9, -0.15, side * 2.15, 0.25, side * 2.25, 0.65);
-    shape.bezierCurveTo(side * 2.5, -0.7, side * 1.5, -0.95, side * 0.8, -0.5);
-    shape.bezierCurveTo(side * 0.4, -0.25, side * 0.2, -0.08, 0, 0);
-    return shape;
-  });
-  const mustache = new THREE.Mesh(new THREE.ShapeGeometry(mustacheLobes, 32), mustacheMaterial);
+  const mustache = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 1.5), mustacheMaterial);
   scene.add(mustache);
+  const trolley = new THREE.Group();
+  const trolleyTrack = new THREE.Group();
 
   // Planets
   const planets: PlanetNode[] = STAGES.map((stage, i) => {
@@ -380,18 +396,75 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
         })));
     }
 
+    if (stage === 'selfie') {
+      const globeMaterial = mesh.material as THREE.MeshStandardMaterial;
+      globeMaterial.transparent = true;
+      globeMaterial.opacity = 0;
+      globeMaterial.depthWrite = false;
+      const surface = new THREE.PlaneGeometry(spec.radius * 2.5, spec.radius * 2.5);
+      mesh.add(new THREE.Mesh(surface,
+        new THREE.MeshBasicMaterial({
+          map: new THREE.TextureLoader().load('/snapturn-emo.png', (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+            const image = texture.image as { width: number; height: number };
+            surface.scale(image.width / image.height, 1, 1);
+          }),
+          transparent: true,
+          alphaTest: 0.1,
+          toneMapped: false,
+        })));
+    }
+
     if (spec.ring) {
+      const surfaceMaterial = mesh.material as THREE.MeshStandardMaterial;
+      surfaceMaterial.bumpMap = surfaceMaterial.map;
+      surfaceMaterial.bumpScale = 0.045;
+      surfaceMaterial.roughness = 0.82;
+      trolleyTrack.rotation.x = Math.PI / 2 - 0.45;
+      mesh.add(trolleyTrack);
       for (const [inner, outer, opacity, color] of [
         [1.45, 1.75, 0.7, '#d9c690'],
         [1.82, 2.25, 0.5, '#b8a574'],
       ] as const) {
         const ring = new THREE.Mesh(
-          new THREE.RingGeometry(spec.radius * inner, spec.radius * outer, 128),
-          new THREE.MeshBasicMaterial({ color, transparent: true, opacity, side: THREE.DoubleSide, depthWrite: false }),
+          new THREE.RingGeometry(spec.radius * inner, spec.radius * outer, 192),
+          new THREE.MeshStandardMaterial({ color, transparent: true, opacity, roughness: 0.9, side: THREE.DoubleSide, depthWrite: false }),
         );
-        ring.rotation.x = Math.PI / 2 - 0.45;
-        mesh.add(ring);
+        trolleyTrack.add(ring);
       }
+      const red = new THREE.MeshStandardMaterial({ color: 0x9b3026, roughness: 0.65 });
+      const cream = new THREE.MeshStandardMaterial({ color: 0xe8d7af, roughness: 0.7 });
+      const roof = new THREE.MeshStandardMaterial({ color: 0x303840, roughness: 0.85 });
+      const glass = new THREE.MeshStandardMaterial({ color: 0x253e49, emissive: 0xcabb85, emissiveIntensity: 0.18, roughness: 0.25 });
+      const metal = new THREE.MeshStandardMaterial({ color: 0xb49353, metalness: 0.65, roughness: 0.4 });
+      const trolleyBox = (w: number, h: number, d: number, x: number, y: number, z: number, material: THREE.Material) => {
+        const part = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+        part.position.set(x, y, z);
+        trolley.add(part);
+      };
+      trolleyBox(1.2, 0.48, 2.5, 0, 0.5, 0, red);
+      trolleyBox(1.2, 0.7, 2.5, 0, 1.07, 0, cream);
+      trolleyBox(1.36, 0.12, 2.7, 0, 1.48, 0, roof);
+      trolleyBox(0.7, 0.12, 1.9, 0, 1.59, 0, cream);
+      trolleyBox(1.16, 0.08, 2.65, 0, 0.22, 0, roof);
+      for (const side of [-1, 1]) {
+        for (const z of [-0.84, -0.28, 0.28, 0.84]) trolleyBox(0.02, 0.47, 0.42, side * 0.612, 1.06, z, glass);
+        trolleyBox(0.88, 0.46, 0.02, 0, 1.07, side * 1.262, glass);
+        trolleyBox(1.3, 0.06, 0.08, 0, 0.31, side * 1.4, metal);
+        const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.1, 12, 8), new THREE.MeshStandardMaterial({ color: 0xfce1a0, emissive: 0xffc970, emissiveIntensity: 0.7 }));
+        lamp.position.set(0, 0.59, side * 1.29);
+        trolley.add(lamp);
+        for (const z of [-0.8, 0.8]) {
+          const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.08, 16), roof);
+          wheel.rotation.z = Math.PI / 2;
+          wheel.position.set(side * 0.57, 0.21, z);
+          wheel.name = 'trolley-wheel';
+          trolley.add(wheel);
+        }
+      }
+      trolley.scale.setScalar(0.72);
+      trolley.rotation.x = Math.PI / 2;
+      trolleyTrack.add(trolley);
     }
 
     const haloMaterial = new THREE.MeshBasicMaterial({
@@ -636,50 +709,111 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   let cardTarget = 0;
   let photoLoadId = 0;
 
-  // A floating TARDIS-style police box, just for fun, hovering above the planet row.
+  // A detailed police box with illuminated windows and inset timber panels.
   const tardis = new THREE.Group();
-  const tardisBody = new THREE.Mesh(
-    new THREE.BoxGeometry(1.1, 2.6, 1.1),
-    new THREE.MeshStandardMaterial({ color: 0x0a3b7a, emissive: 0x1a5bb8, emissiveIntensity: 0.4, roughness: 0.5, metalness: 0.2 }),
-  );
-  tardis.add(tardisBody);
+  const timberCanvas = document.createElement('canvas');
+  timberCanvas.width = timberCanvas.height = 128;
+  const timberContext = timberCanvas.getContext('2d')!;
+  const timberRandom = mulberry32(1973);
+  for (let x = 0; x < 128; x++) {
+    const shade = Math.floor(95 + timberRandom() * 60);
+    timberContext.fillStyle = `rgb(${shade},${shade},${shade})`;
+    timberContext.fillRect(x, 0, 1, 128);
+  }
+  const timberBump = new THREE.CanvasTexture(timberCanvas);
+  const blueTimber = new THREE.MeshStandardMaterial({ color: 0x174e83, roughness: 0.86, bumpMap: timberBump, bumpScale: 0.015 });
+  const darkTimber = new THREE.MeshStandardMaterial({ color: 0x0a2949, roughness: 0.9, bumpMap: timberBump, bumpScale: 0.012 });
+  const insetTimber = new THREE.MeshStandardMaterial({ color: 0x10365c, roughness: 0.9 });
+  const litGlass = new THREE.MeshStandardMaterial({ color: 0xc6e6eb, emissive: 0x9ccbd8, emissiveIntensity: 0.65, roughness: 0.3 });
+  const brass = new THREE.MeshStandardMaterial({ color: 0xb8a77e, metalness: 0.7, roughness: 0.35 });
+  const box = (parent: THREE.Group, width: number, height: number, depth: number, x: number, y: number, z: number, material: THREE.Material) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+    mesh.position.set(x, y, z);
+    parent.add(mesh);
+    return mesh;
+  };
+  box(tardis, 1.12, 2.55, 1.12, 0, 0, 0, darkTimber);
+  box(tardis, 1.4, 0.12, 1.4, 0, -1.34, 0, darkTimber);
+  box(tardis, 1.3, 0.1, 1.3, 0, -1.23, 0, blueTimber);
+  for (const x of [-0.56, 0.56]) {
+    for (const z of [-0.56, 0.56]) box(tardis, 0.13, 2.62, 0.13, x, 0, z, blueTimber);
+  }
+  box(tardis, 1.42, 0.12, 1.42, 0, 1.35, 0, darkTimber);
+  box(tardis, 1.3, 0.13, 1.3, 0, 1.47, 0, blueTimber);
+  box(tardis, 1.14, 0.12, 1.14, 0, 1.59, 0, darkTimber);
+  box(tardis, 0.96, 0.1, 0.96, 0, 1.7, 0, blueTimber);
 
-  const tardisRoof = new THREE.Mesh(
-    new THREE.BoxGeometry(1.25, 0.28, 1.25),
-    new THREE.MeshStandardMaterial({ color: 0x04173d, roughness: 0.6 }),
-  );
-  tardisRoof.position.y = 1.44;
-  tardis.add(tardisRoof);
-
-  const tardisLamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.14, 12, 12),
-    new THREE.MeshStandardMaterial({ color: 0xfff3c0, emissive: 0xffd966, emissiveIntensity: 1.2 }),
-  );
-  tardisLamp.position.y = 1.72;
-  tardis.add(tardisLamp);
-
-  const windowOffsets: [number, number][] = [
-    [-0.27, 0.6],
-    [0.27, 0.6],
-    [-0.27, 0.1],
-    [0.27, 0.1],
-  ];
-  for (const angle of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+  const signCanvas = document.createElement('canvas');
+  signCanvas.width = 1024;
+  signCanvas.height = 160;
+  const signContext = signCanvas.getContext('2d')!;
+  signContext.fillStyle = '#071420';
+  signContext.fillRect(0, 0, 1024, 160);
+  signContext.fillStyle = '#e7f3f4';
+  signContext.textAlign = 'center';
+  signContext.textBaseline = 'middle';
+  signContext.font = 'bold 70px sans-serif';
+  signContext.fillText('POLICE', 205, 85);
+  signContext.fillText('CALL BOX', 768, 85);
+  signContext.font = 'bold 34px sans-serif';
+  signContext.fillText('PUBLIC', 461, 58);
+  signContext.fillText('CALL', 461, 103);
+  const signTexture = new THREE.CanvasTexture(signCanvas);
+  signTexture.colorSpace = THREE.SRGBColorSpace;
+  const signMaterial = new THREE.MeshStandardMaterial({ map: signTexture, emissiveMap: signTexture, emissive: 0xffffff, emissiveIntensity: 0.2, roughness: 0.65 });
+  for (const angle of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
     const face = new THREE.Group();
     face.rotation.y = angle;
-    for (const [x, y] of windowOffsets) {
-      const pane = new THREE.Mesh(
-        new THREE.BoxGeometry(0.32, 0.4, 0.03),
-        new THREE.MeshStandardMaterial({ color: 0x04173d, emissive: 0xbcd9ff, emissiveIntensity: 0.3 }),
-      );
-      pane.position.set(x, y, 0.56);
-      face.add(pane);
+    box(face, 1.08, 0.24, 0.04, 0, 1.16, 0.615, darkTimber);
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 0.16), signMaterial);
+    sign.position.set(0, 1.16, 0.64);
+    face.add(sign);
+    for (const doorX of [-0.26, 0.26]) {
+      box(face, 0.48, 2.13, 0.045, doorX, -0.07, 0.585, blueTimber);
+      box(face, 0.37, 0.55, 0.02, doorX, 0.67, 0.614, darkTimber);
+      for (let column = 0; column < 3; column++) {
+        for (let row = 0; row < 2; row++) {
+          box(face, 0.098, 0.235, 0.012, doorX + (column - 1) * 0.115, 0.67 + (row - 0.5) * 0.26, 0.63, litGlass);
+        }
+      }
+      for (const y of [0.14, -0.35, -0.84]) {
+        box(face, 0.36, 0.4, 0.025, doorX, y, 0.615, darkTimber);
+        box(face, 0.29, 0.33, 0.01, doorX, y, 0.631, insetTimber);
+      }
     }
+    box(face, 0.04, 2.14, 0.035, 0, -0.07, 0.638, blueTimber);
     tardis.add(face);
   }
-
-  tardis.position.set(7, 11, 2);
-  tardis.scale.setScalar(1.3);
+  const noticeCanvas = document.createElement('canvas');
+  noticeCanvas.width = 256;
+  noticeCanvas.height = 320;
+  const noticeContext = noticeCanvas.getContext('2d')!;
+  noticeContext.fillStyle = '#e5e0cf';
+  noticeContext.fillRect(0, 0, 256, 320);
+  noticeContext.fillStyle = '#182735';
+  noticeContext.textAlign = 'center';
+  noticeContext.font = 'bold 22px serif';
+  for (const [index, line] of ['POLICE TELEPHONE', 'FREE', 'FOR USE OF', 'PUBLIC', 'PULL TO OPEN'].entries()) noticeContext.fillText(line, 128, 45 + index * 48);
+  const noticeTexture = new THREE.CanvasTexture(noticeCanvas);
+  noticeTexture.colorSpace = THREE.SRGBColorSpace;
+  const notice = new THREE.Mesh(new THREE.PlaneGeometry(0.27, 0.34), new THREE.MeshStandardMaterial({ map: noticeTexture, roughness: 0.85 }));
+  notice.position.set(-0.26, 0.14, 0.65);
+  tardis.add(notice);
+  box(tardis, 0.025, 0.17, 0.04, 0.08, 0.1, 0.665, brass);
+  box(tardis, 0.045, 0.045, 0.025, 0.08, -0.09, 0.658, brass);
+  const lantern = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.24, 12), new THREE.MeshStandardMaterial({ color: 0xfff4d6, emissive: 0xffe3a8, emissiveIntensity: 1.5 }));
+  lantern.position.y = 1.9;
+  tardis.add(lantern);
+  box(tardis, 0.23, 0.05, 0.23, 0, 1.76, 0, darkTimber);
+  box(tardis, 0.23, 0.05, 0.23, 0, 2.04, 0, darkTimber);
+  for (const x of [-0.08, 0.08]) {
+    for (const z of [-0.08, 0.08]) box(tardis, 0.018, 0.25, 0.018, x, 1.9, z, darkTimber);
+  }
+  const lanternLight = new THREE.PointLight(0xc9e9ff, 0.5, 5, 2);
+  lanternLight.position.set(0, 1.9, 0);
+  tardis.add(lanternLight);
+  tardis.position.set(0, -5, 12);
+  tardis.scale.setScalar(2);
   scene.add(tardis);
 
   const tardisLabel = document.createElement('div');
@@ -701,9 +835,17 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     raycaster.setFromCamera(pointerNdc, camera);
     const hit = raycaster.intersectObjects([tardis, ...planets.map((planet) => planet.mesh), ...twinPlanets.map((twin) => twin.mesh)], true)[0];
     if (!hit) return null;
-    const twinIndex = twinPlanets.findIndex((twin) => twin.mesh === hit.object || twin.mesh === hit.object.parent);
+    const belongsTo = (root: THREE.Object3D) => {
+      let object: THREE.Object3D | null = hit.object;
+      while (object) {
+        if (object === root) return true;
+        object = object.parent;
+      }
+      return false;
+    };
+    const twinIndex = twinPlanets.findIndex((twin) => belongsTo(twin.mesh));
     if (twinIndex >= 0) return twinIndex;
-    const planet = planets.find((planet) => planet.mesh === hit.object || planet.mesh === hit.object.parent);
+    const planet = planets.find((planet) => belongsTo(planet.mesh));
     return planet?.stage ?? 'tardis';
   }
 
@@ -760,7 +902,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
   function frame(stage: Stage) {
     const p = POSITIONS[stage];
-    const extent = SPECS[stage].radius * (SPECS[stage].ring ? 1.8 : 1);
+    const extent = SPECS[stage].radius * (SPECS[stage].ring ? 2.3 : 1);
     const distance = Math.max(extent * 4.5, extent * 2.8 / camera.aspect);
     cameraTarget.set(p.x + 0.6, p.y + 0.8, p.z + distance);
     lookTarget.set(p.x, p.y - 0.25, p.z);
@@ -790,7 +932,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       planet.mesh.position.set(x!, y!, z!);
       planet.homeY = y!;
     });
-    tardis.position.x = compactLayout ? -1 : 0;
+    tardis.position.set(0, compactLayout ? -18 : -5, compactLayout ? 14 : 12);
     OVERVIEW_TARGET.set(0, compactLayout ? -18 : -8, -3);
     OVERVIEW_POSITION.set(0, compactLayout ? -10 : 5,
       Math.max(compactLayout ? 130 : 90,
@@ -851,7 +993,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
     for (const p of planets) {
       const index = STAGES.indexOf(p.stage);
-      if (p.stage === 'pairing' || p.stage === 'humanCheck') p.mesh.quaternion.copy(camera.quaternion);
+      if (p.stage === 'pairing' || p.stage === 'humanCheck' || p.stage === 'selfie') p.mesh.quaternion.copy(camera.quaternion);
       else p.mesh.rotation.y += dt * (0.06 + index * 0.012);
       if (p.stage === 'language' && !reduceMotion) {
         const clouds = p.mesh.getObjectByName('translatopia-clouds');
@@ -879,6 +1021,13 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       p.mesh.scale.setScalar(scale);
 
       if (p.stage === 'ticket') {
+        const orbit = reduceMotion ? 0.6 : t * Math.PI * 2 / 25;
+        const radius = SPECS.ticket.radius * 1.61;
+        trolley.position.set(Math.cos(orbit) * radius, Math.sin(orbit) * radius, 0.03);
+        trolley.rotation.set(Math.PI / 2, orbit + Math.PI, 0);
+        for (const wheel of trolley.children) {
+          if (wheel.name === 'trolley-wheel') wheel.rotation.x = reduceMotion ? 0 : -t * 3.5;
+        }
         mustache.quaternion.copy(camera.quaternion);
         mustache.position.set(0, -0.4, SPECS.ticket.radius + 0.1)
           .applyQuaternion(camera.quaternion).add(p.mesh.position);
@@ -925,12 +1074,12 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     card.visible = frameMat.opacity > 0.01;
     card.position.y = marsHome.y + 0.6 + Math.sin(t * 0.9) * (reduceMotion ? 0 : 0.12);
 
-    // TARDIS: gentle bob and spin
-    tardis.rotation.y += dt * 0.25;
-    tardis.position.y = (compactLayout ? 25 : 24) + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
+    // TARDIS: keep the doors facing the visitor while gently drifting.
+    tardis.rotation.y = -0.16 + (reduceMotion ? 0 : Math.sin(t * 0.18) * 0.22);
+    tardis.position.y = (compactLayout ? -18 : -5) + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
 
     tmp.copy(tardis.position);
-    tmp.y += 2.4;
+    tmp.y += 2.2 * tardis.scale.y;
     tmp.project(camera);
     const tardisVisible = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15;
     tardisLabel.style.opacity = tardisVisible ? '1' : '0';

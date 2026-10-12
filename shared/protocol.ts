@@ -39,7 +39,7 @@ export const PLANETS: Record<Stage, string> = {
   language: 'La Biblioteca',
   selfie: 'Snapturn',
   humanCheck: 'Lengsdwarf',
-  ticket: 'Opus 1',
+  ticket: 'LOMB',
 };
 
 export const STAGE_LABELS: Record<Stage, string> = {

@@ -404,6 +404,24 @@ body {
   backdrop-filter: blur(8px);
 }
 
+.welcome:not(.survey)[open] {
+  animation: welcome-arrive 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.welcome:not(.survey)[open]::backdrop {
+  animation: welcome-backdrop 420ms ease-out both;
+}
+
+@keyframes welcome-arrive {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes welcome-backdrop {
+  from { background: rgba(7, 11, 22, 0); backdrop-filter: blur(0); }
+  to { background: rgba(7, 11, 22, 0.72); backdrop-filter: blur(8px); }
+}
+
 .end {
   position: fixed;
   inset: 0;
@@ -566,6 +584,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .welcome:not(.survey)[open],
+  .welcome:not(.survey)[open]::backdrop {
+    animation: none;
+  }
+
   .planet-label,
   .button {
     transition: none;
