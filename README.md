@@ -170,6 +170,23 @@ The OpenAI SDK packages are pinned together through root `overrides`. TAC has an
 
 For local Dev Phone testing, fill the ignored `.env` with `VOICE_TRANSPORT=tac`, `ENABLE_DEV_PHONE=true`, the Twilio account/auth token, API Key SID and matching secret, phone number, TwiML App SID, and a `DEV_PHONE_ACCESS_CODE` of at least 16 characters. Set `PUBLIC_BASE_URL` to your HTTPS tunnel URL. Use your existing TwiML App with its Voice request URL set to `<PUBLIC_BASE_URL>/incoming-call` (POST). For Railway Production testing, set these same values in Production service variables and use `https://webdevchallenge-production.up.railway.app` as `PUBLIC_BASE_URL`. Local phone testing temporarily requires routing both Twilio webhooks to the tunnel; restore both to Production afterward. Build with `npm run build`, then start with `npm run dev`; open http://localhost:5050 and use the Dev Phone panel.
 
+### Speakerphone and background noise
+
+In Railway Production service Variables, adjust these values and deploy the variable changes:
+
+```text
+OPENAI_VAD_THRESHOLD=0.6
+OPENAI_INPUT_NOISE_REDUCTION=far_field
+OPENAI_INTERRUPT_RESPONSE=false
+```
+
+These are also the application defaults. The speech threshold ranges from 0 to 1; increase it gradually
+(for example to 0.7) if quiet background sounds trigger speech, or lower it if the caller is not detected.
+Use `far_field` for speakerphone, `near_field` for a headset, or `none` to disable noise reduction.
+With interruptions disabled, wait until the agent finishes before answering. Nearby voices and speaker
+feedback can still sound like speech; these settings cannot guarantee isolation of one speaker.
+Successful code pairing now displays the language test in the same server tool call.
+
 ### Calls disconnect immediately after the greeting
 
 Keep Production’s `PUBLIC_BASE_URL`, the phone number’s Voice webhook, and the TwiML App’s Voice URL pointed at Production. Mixing a local tunnel with the deployed service can grant the call on one server and send its media WebSocket to another, where the stream is rejected. Final-hold callbacks also need to reach the same server.
