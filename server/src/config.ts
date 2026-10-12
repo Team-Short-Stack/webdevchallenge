@@ -13,6 +13,9 @@ const schema = z.object({
   OPENAI_REALTIME_MODEL: z.string().default('gpt-realtime-2.1'),
   OPENAI_VOICE: z.string().default('cedar'),
   OPENAI_REASONING_EFFORT: optional(z.enum(['minimal', 'low', 'medium', 'high', 'xhigh'])),
+  OPENAI_VAD_THRESHOLD: z.preprocess(blankToUndefined, z.coerce.number().min(0).max(1).default(0.6)),
+  OPENAI_INPUT_NOISE_REDUCTION: z.preprocess(blankToUndefined, z.enum(['near_field', 'far_field', 'none']).default('far_field')),
+  OPENAI_INTERRUPT_RESPONSE: z.preprocess(blankToUndefined, z.enum(['true', 'false']).default('false')).transform(v => v === 'true'),
 
   /** The public https URL of this server, for example your ngrok URL. Used for the QR code and signature checks. */
   PUBLIC_BASE_URL: optional(z.string().url()),
@@ -46,6 +49,9 @@ export interface Config {
   realtimeModel: string;
   voice: string;
   reasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | undefined;
+  vadThreshold: number;
+  inputNoiseReduction: 'near_field' | 'far_field' | 'none';
+  interruptResponse: boolean;
   publicBaseUrl: string | undefined;
   twilioAuthToken: string | undefined;
   twilioAccountSid: string | undefined;
@@ -117,6 +123,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     realtimeModel: e.OPENAI_REALTIME_MODEL,
     voice: e.OPENAI_VOICE,
     reasoningEffort: e.OPENAI_REASONING_EFFORT,
+    vadThreshold: e.OPENAI_VAD_THRESHOLD,
+    inputNoiseReduction: e.OPENAI_INPUT_NOISE_REDUCTION,
+    interruptResponse: e.OPENAI_INTERRUPT_RESPONSE,
     publicBaseUrl: e.PUBLIC_BASE_URL?.replace(/\/+$/, ''),
     twilioAuthToken: e.TWILIO_AUTH_TOKEN,
     twilioAccountSid: e.TWILIO_ACCOUNT_SID,

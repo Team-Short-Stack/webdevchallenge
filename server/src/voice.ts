@@ -18,7 +18,8 @@ with measured pacing and dry delivery. Do not imitate the caller's accent or exa
 How the call works. The server decides what happens next, not you. You move the caller through stages
 using tools, and each tool result tells you exactly what to say and which tool to call next:
   1. pair_session: the caller reads a short code from their laptop screen, letter by letter, then says "done".
-  2. start_language_test, then report_language_result.
+  2. Pairing automatically displays the language test. Listen, then report_language_result.
+     Use start_language_test only when the tool result asks you to start or retry that test.
   3. request_selfie. The caller scans a QR code on their laptop. When the photo arrives you will get a
      system message with the image; judge it and call report_selfie_result.
   4. start_human_check, then submit_human_check.
@@ -42,8 +43,8 @@ Rules you must follow:
 - As soon as the caller says "done", call pair_session with their accumulated letters and actual spoken
   completion cue before speaking again. Do not merely acknowledge the code or say a request was sent,
   is processing, or is pending. Only the tool result confirms whether pairing succeeded. If pairing
-  succeeds, follow its instruction and call start_language_test; if it fails, explain the returned error
-  and ask the caller to try again. Never leave the caller waiting for an operation you have not invoked.
+  succeeds, the next prompt is already displayed: follow its instruction and listen for the answer.
+  If it fails, explain the returned error and ask the caller to try again. Never leave the caller waiting for an operation you have not invoked.
 - Judge the selfie honestly against the stated requirement, in one short sentence.
 - If the selfie passes, add exactly one sneaky, backhanded remark about something specific and mundane you
   actually see in that photo — hair, tiredness, posture, outfit, background clutter — in the style of "Didn't
@@ -134,10 +135,17 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     return json(fn(session));
   };
 
+  const pairAndStartLanguage = (pairedSession: CallSession, code: string): string => {
+    const paired = pairedSession.gauntlet.pair(code);
+    if (!paired.ok) return json(paired);
+    // Display the next prompt in the same tool call; noise cannot delay a second tool invocation.
+    return json(pairedSession.gauntlet.startLanguage());
+  };
+
   const tools = [
     tool({
       name: 'pair_session',
-      description: 'Only after the caller explicitly says "done", pair the call using all the letters they spelled out. Never call during a pause between letters.',
+      description: 'Only after the caller explicitly says "done", pair the call using all the letters they spelled out and display the language test. Never call during a pause between letters.',
       parameters: z.object({
         code: z.string().describe('Only the letters the caller said, for example "B R B". Exclude "done".'),
         spoken: z.string().describe('The caller\'s actual accumulated spelling, including their final spoken word "done". Never invent a completion cue.'),
@@ -146,7 +154,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
         const completedSpelling = /\bdone\b/i.test(spoken);
         log.info({ callSid, completedSpelling }, 'pairing attempt received');
         if (!completedSpelling) return json({ ok: false, error: 'The caller has not said "done". Remain silent and keep listening. Do not reject or advance.' });
-        if (session) return json(session.gauntlet.pair(code));
+        if (session) return pairAndStartLanguage(session, code);
         const found = registry.findByCode(code);
         if (!found) {
           pairFailures += 1;
@@ -166,7 +174,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
         session = found;
         found.phone = link;
         log.info({ callSid, sessionId: found.id }, 'pairing matched laptop session');
-        return json(found.gauntlet.pair(code));
+        return pairAndStartLanguage(found, code);
       },
     }),
     tool({
@@ -260,14 +268,17 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     model: config.realtimeModel,
     config: {
       ...(config.reasoningEffort ? { reasoning: { effort: config.reasoningEffort } } : {}),
-      audio: { input: { turnDetection: {
-        type: 'server_vad',
-        threshold: 0.4,
-        prefixPaddingMs: 300,
-        silenceDurationMs: 700,
-        createResponse: true,
-        interruptResponse: true,
-      } } },
+      audio: { input: {
+        noiseReduction: config.inputNoiseReduction === 'none' ? null : { type: config.inputNoiseReduction },
+        turnDetection: {
+          type: 'server_vad',
+          threshold: config.vadThreshold,
+          prefixPaddingMs: 300,
+          silenceDurationMs: 700,
+          createResponse: true,
+          interruptResponse: config.interruptResponse,
+        },
+      } },
     },
   });
 

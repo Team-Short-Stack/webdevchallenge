@@ -23,6 +23,9 @@ app.log.info(
   {
     model: config.realtimeModel,
     voiceTransport: config.voiceTransport,
+    vadThreshold: config.vadThreshold,
+    inputNoiseReduction: config.inputNoiseReduction,
+    interruptResponse: config.interruptResponse,
     publicBaseUrl: config.publicBaseUrl ?? '(not set: the QR code will point at localhost)',
     twilioSignatureChecks: Boolean(config.twilioAuthToken),
     allowedCallers: config.allowedCallers.length || 'anyone',
