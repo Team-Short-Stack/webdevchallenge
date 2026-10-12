@@ -250,22 +250,41 @@ body {
   outline-offset: 2px;
 }
 
-/* Ticket list */
+/* Ticket drawer, attached to the right edge of the viewport */
 .tickets-menu {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 2;
+  top: 0;
+  right: 0;
+  z-index: 4;
+}
+
+.tickets-menu[open] {
+  display: flex;
+  flex-direction: column;
+  width: min(380px, 100vw);
+  height: 100dvh;
+  background: var(--panel);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
 }
 
 .tickets-menu summary {
-  padding: 10px 14px;
+  flex-shrink: 0;
+  line-height: 24px;
+  padding: 18px 22px;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 6px;
+  border-radius: 0 0 0 8px;
   background: var(--panel);
   color: var(--ink-dim);
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   cursor: pointer;
+}
+
+.tickets-menu[open] summary {
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
 }
 
 .tickets-menu summary:hover,
@@ -275,21 +294,17 @@ body {
 
 .tickets-menu summary:focus-visible {
   outline: 3px solid var(--led);
-  outline-offset: 2px;
+  outline-offset: -3px;
 }
 
 .tickets {
   position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  width: min(290px, calc(100vw - 40px));
-  max-height: calc(100dvh - 100px);
-  padding: 14px;
+  inset: 61px 0 0;
+  min-height: 0;
+  padding: 20px;
   overflow-y: auto;
-  background: var(--panel);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 10px;
-  backdrop-filter: blur(6px);
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
 }
 
 .tickets h2 {
@@ -331,6 +346,11 @@ body {
 .ticket-id {
   font-weight: 700;
   color: var(--slip-ink);
+}
+
+.ticket .ticket-empty {
+  color: rgba(14, 20, 36, 0.75);
+  font-size: 0.82rem;
 }
 
 .ticket-empty {

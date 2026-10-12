@@ -30,7 +30,7 @@ export interface UiApi {
 export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void; onDevPhone(accessCode: string): void; onHangupDevPhone(): void }): UiApi {
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
-  const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
+  const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Recent tickets'), ticketList);
   const ticketsMenu = el('details', { class: 'tickets-menu' },
     el('summary', {}, 'Tickets'),
     ticketsPanel,
