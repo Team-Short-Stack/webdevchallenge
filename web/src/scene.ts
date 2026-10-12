@@ -1045,7 +1045,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
           if (wheel.name === 'trolley-wheel') wheel.rotation.x = reduceMotion ? 0 : -t * 3.5;
         }
         mustache.quaternion.copy(camera.quaternion);
-        mustache.position.set(0, -0.4, SPECS.ticket.radius + 0.1)
+        mustache.position.set(0, SPECS.ticket.radius * 0.3, SPECS.ticket.radius + 0.1)
           .applyQuaternion(camera.quaternion).add(p.mesh.position);
         mustache.scale.setScalar(scale);
         mustacheMaterial.opacity = reduceMotion ? 1 : (1 + Math.sin(t * Math.PI / 3)) / 2;
