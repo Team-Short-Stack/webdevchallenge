@@ -138,6 +138,7 @@ function connect() {
   socket = ws;
 
   ws.addEventListener('open', () => {
+    if (socket !== ws) return;
     retries = 0;
     state.connected = true;
     send({ type: 'hello', sessionId: sessionStorage.getItem(SESSION_KEY) ?? undefined });
@@ -145,6 +146,7 @@ function connect() {
   });
 
   ws.addEventListener('message', (event) => {
+    if (socket !== ws) return;
     try {
       handle(JSON.parse(String(event.data)) as ServerMessage);
     } catch (error) {
@@ -153,6 +155,7 @@ function connect() {
   });
 
   ws.addEventListener('close', () => {
+    if (socket !== ws) return;
     state.connected = false;
     render();
     const delay = reconnectNow ? 0 : Math.min(1000 * 2 ** retries, 8000);
@@ -164,7 +167,8 @@ function connect() {
 
 function handle(message: ServerMessage) {
   switch (message.type) {
-    case 'snapshot':
+    case 'snapshot': {
+      const phaseChanged = state.phase !== message.phase;
       Object.assign(state, {
         sessionId: message.sessionId,
         code: message.code,
@@ -177,19 +181,23 @@ function handle(message: ServerMessage) {
         ended: null,
       });
       sessionStorage.setItem(SESSION_KEY, message.sessionId);
-      scene?.setPhase(message.phase);
+      // A reconnect refreshes the session, but must not clear the selected planet.
+      if (phaseChanged) scene?.setPhase(message.phase);
       scene?.setPhoto(message.photo);
       if (message.surveyPending) showSurvey();
       break;
+    }
     case 'show_survey':
       showSurvey();
       break;
-    case 'state_changed':
+    case 'state_changed': {
+      const phaseChanged = state.phase !== message.phase;
       state.phase = message.phase;
       state.attempts = message.attempts;
       state.prompt = null; // the server clears the prompt on every state change
-      scene?.setPhase(message.phase);
+      if (phaseChanged) scene?.setPhase(message.phase);
       break;
+    }
     case 'paired':
       state.paired = true;
       ui.toast('Verified. Barely.', 'pass');
