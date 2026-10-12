@@ -90,4 +90,7 @@ export type ServerMessage =
   | { type: 'error'; message: string };
 
 /** Laptop -> server. */
-export type ClientMessage = { type: 'hello'; sessionId?: string } | { type: 'survey_completed'; selection: 'happy' };
+export type ClientMessage =
+  | { type: 'hello'; sessionId?: string }
+  | { type: 'survey_completed'; selection: 'happy' }
+  | { type: 'event_received'; eventType: 'paired' | 'state_changed' | 'show_language_prompt' };

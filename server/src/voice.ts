@@ -65,6 +65,27 @@ export interface VoiceDeps {
   onFinalHold?: (session: CallSession, token: string, callSid: string) => void;
 }
 
+function errorDetails(value: unknown, depth = 0): object {
+  if (depth > 2) return { message: 'Nested error omitted' };
+  if (value instanceof Error) {
+    return {
+      name: value.name, message: value.message, stack: value.stack,
+      ...(value.cause ? { cause: errorDetails(value.cause, depth + 1) } : {}),
+    };
+  }
+  if (value && typeof value === 'object') {
+    const error = value as Record<string, unknown>;
+    return {
+      name: typeof error.name === 'string' ? error.name : undefined,
+      message: typeof error.message === 'string' ? error.message : 'Non-Error SDK failure',
+      code: typeof error.code === 'string' ? error.code : undefined,
+      stack: typeof error.stack === 'string' ? error.stack : undefined,
+      ...(error.error ? { cause: errorDetails(error.error, depth + 1) } : {}),
+    };
+  }
+  return { message: String(value) };
+}
+
 const MAX_PAIR_FAILURES = 6;
 
 /** Wires one Twilio media stream to one OpenAI Realtime session and the matching call session. */
@@ -226,6 +247,14 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   });
 
   const transport = new TwilioRealtimeTransportLayer({ twilioWebSocket: socket, url: deps.realtimeUrl });
+  const toolTimings = new Map<string, { tool: string; receivedAt: number; startedAt?: number }>();
+  // Record receipt before the SDK dispatches the tool, including failures before execution starts.
+  transport.on('function_call', (event) => {
+    const receivedAt = Date.now();
+    toolTimings.set(event.callId, { tool: event.name, receivedAt });
+    log.info({ callSid, sessionId: session?.id, tool: event.name, toolCallId: event.callId,
+      receivedAt: new Date(receivedAt).toISOString() }, 'tool call received');
+  });
   const realtime = new RealtimeSession(agent, {
     transport,
     model: config.realtimeModel,
@@ -266,7 +295,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
       for (const finish of playbackWaiters.values()) finish(false);
     }
     if (event.type === 'input_audio_buffer.speech_started' || event.type === 'input_audio_buffer.speech_stopped') {
-      log.info({ event: event.type }, 'caller speech detected');
+      log.info({ callSid, sessionId: session?.id, event: event.type }, 'caller speech detected');
     }
   });
   realtime.on('audio', () => { verdictAudioSent = true; });
@@ -307,17 +336,40 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
       /* already closed */
     }
     deps.onCallEnd();
-    log.info({ reason }, 'call ended');
+    log.info({ callSid, sessionId: session?.id, reason }, 'call ended');
   }
 
   socket.on('close', () => end('hangup'));
   socket.on('error', (error) => {
-    log.warn({ error: String(error) }, 'phone socket error');
+    log.warn({ callSid, sessionId: session?.id, error: errorDetails(error) }, 'phone socket error');
     end('hangup');
   });
 
-  realtime.on('error', (event) => log.error({ error: String((event as { error?: unknown }).error ?? event) }, 'realtime error'));
-  realtime.on('agent_tool_start', (_ctx, _agent, t) => log.info({ tool: t.name }, 'tool call'));
+  realtime.on('error', (event) => {
+    log.error({ callSid, sessionId: session?.id,
+      pendingTools: [...toolTimings].map(([toolCallId, timing]) => ({
+        toolCallId, tool: timing.tool, elapsedMs: Date.now() - timing.receivedAt,
+      })), error: errorDetails(event.error ?? event) }, 'realtime error');
+  });
+  realtime.on('agent_tool_start', (_ctx, _agent, tool, details) => {
+    const toolCallId = details.toolCall.callId;
+    const timing = toolTimings.get(toolCallId);
+    const startedAt = Date.now();
+    if (timing) timing.startedAt = startedAt;
+    log.info({ callSid, sessionId: session?.id, tool: tool.name, toolCallId,
+      startedAt: new Date(startedAt).toISOString(),
+      dispatchDelayMs: timing ? startedAt - timing.receivedAt : undefined }, 'tool call');
+  });
+  realtime.on('agent_tool_end', (_ctx, _agent, tool, result, details) => {
+    const toolCallId = details.toolCall.callId;
+    const timing = toolTimings.get(toolCallId);
+    let ok: boolean | undefined;
+    try { ok = (JSON.parse(result) as { ok?: boolean }).ok; } catch { /* No result body is logged. */ }
+    log.info({ callSid, sessionId: session?.id, tool: tool.name, toolCallId, ok,
+      completedAt: new Date().toISOString(),
+      elapsedMs: timing ? Date.now() - timing.receivedAt : undefined }, 'tool call completed');
+    toolTimings.delete(toolCallId);
+  });
 
   maxTimer = setTimeout(() => end('timeout'), config.maxCallMinutes * 60_000);
   maxTimer.unref();
@@ -326,9 +378,9 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     await realtime.connect({ apiKey: config.openaiApiKey });
     realtimeReady = true;
     greet();
-    log.info({ model: config.realtimeModel }, 'connected to OpenAI Realtime');
+    log.info({ callSid, model: config.realtimeModel }, 'connected to OpenAI Realtime');
   } catch (error) {
-    log.error({ error: String(error) }, 'could not connect to OpenAI Realtime');
+    log.error({ callSid, error: errorDetails(error) }, 'could not connect to OpenAI Realtime');
     end('hangup');
   }
 }

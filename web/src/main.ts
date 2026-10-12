@@ -236,6 +236,10 @@ function handle(message: ServerMessage) {
       break;
   }
   render();
+  // Confirm that the browser handled the pairing transition and next prompt.
+  if (message.type === 'paired' || message.type === 'state_changed' || message.type === 'show_language_prompt') {
+    send({ type: 'event_received', eventType: message.type });
+  }
 }
 
 function startNewCall() {
