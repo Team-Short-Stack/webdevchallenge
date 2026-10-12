@@ -95,7 +95,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'A photo is on your screen. In which season did Jason wear those famous sunflower pants?',
+        prompt: 'In which season of Web Dev Challenge did Jason wear his infamous sunflower pants?',
         judge: 'number',
         expected: 2,
         imageUrl: '/fashion/sunflower-pants.png',
@@ -105,7 +105,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
         id,
         title: 'Fashion archive',
         prompt:
-          'A photo is on your screen. In season two, which episode did Jason resemble a certain Cuban-American rapper?',
+          'In which episode of season 2 did Jason resemble the popular Cuban-American rapper, Pitbull?',
         judge: 'number',
         expected: 6,
         imageUrl: '/fashion/pitbull.png',
@@ -114,7 +114,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'A photo is on your screen. Which episode found Jason channeling Mister Rogers in a smoking cardigan?',
+        prompt: 'In which episode of Web Dev Challenge season 3 did Jason most resemble Mister Rogers in a smoking cardigan?',
         judge: 'number',
         expected: 3,
         imageUrl: '/fashion/mister-rogers.png',
@@ -123,7 +123,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'In which episode of season 2 did Jason wear his very smart "free people read freely" sweater?',
+        prompt: 'In which episode of season 2 of Web Dev Challenge did Jason sport his "free people read freely" sweater?',
         judge: 'number',
         expected: 12,
         imageUrl: '/fashion/read-freely.png',
@@ -132,7 +132,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'A photo is on your screen. In season two, which episode did Jason most resemble a cheetah?',
+        prompt: 'In which episode of season 2 of Web Dev Challenge did Jason most resemble a cheetah?',
         judge: 'number',
         expected: 5,
         imageUrl: '/fashion/cheetah.png',
@@ -141,7 +141,7 @@ export function buildHumanCheck(id: HumanCheckId): HumanCheck {
       return {
         id,
         title: 'Fashion archive',
-        prompt: 'A photo is on your screen. In which season did Jason sport the fan-created "sad computer" tee?',
+        prompt: 'In which season of Web Dev Challenge did Jason sport the "Sad computer" tee?',
         judge: 'number',
         expected: 2,
         imageUrl: '/fashion/sad-computer.png',
