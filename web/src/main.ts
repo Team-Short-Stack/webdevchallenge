@@ -89,6 +89,7 @@ const ui = createUi(appRoot, {
         activeDevCall = null;
         device.destroy();
         if (devDevice === device) devDevice = null;
+        if (state.ended !== 'completed' && state.phase !== 'done') startNewCall();
         ui.setDevPhoneActive(false, status);
         render();
       };
@@ -126,13 +127,15 @@ const render = () => ui.render(state, showDevPhonePrompt && state.phase === 'pai
 
 let socket: WebSocket | null = null;
 let retries = 0;
-let reconnectNow = false;
+let reconnectTimer: number | undefined;
 
 function send(message: ClientMessage) {
   if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
 }
 
 function connect() {
+  window.clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
   const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${scheme}://${location.host}/ws/laptop`);
   socket = ws;
@@ -158,10 +161,11 @@ function connect() {
     if (socket !== ws) return;
     state.connected = false;
     render();
-    const delay = reconnectNow ? 0 : Math.min(1000 * 2 ** retries, 8000);
-    reconnectNow = false;
+    const delay = Math.min(1000 * 2 ** retries, 8000);
     retries += 1;
-    window.setTimeout(connect, delay);
+    reconnectTimer = window.setTimeout(() => {
+      if (socket === ws) connect();
+    }, delay);
   });
 }
 
@@ -229,6 +233,11 @@ function handle(message: ServerMessage) {
       surveyMusic.pause();
       ui.closeSurvey();
       surveyOpen = false;
+      if (message.reason !== 'completed') {
+        startNewCall();
+        ui.toast('Call ended. Preparing a fresh code for your next call.', 'info');
+        return;
+      }
       state.ended = message.reason;
       break;
     case 'error':
@@ -243,14 +252,30 @@ function handle(message: ServerMessage) {
 }
 
 function startNewCall() {
+  // Detach first: late messages and close events from the old session must be ignored.
+  window.clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
+  const previousSocket = socket;
+  socket = null;
+  previousSocket?.close();
+  const previousCall = activeDevCall;
+  activeDevCall = null;
+  previousCall?.disconnect();
+  devDevice?.destroy();
+  devDevice = null;
+  ui.setDevPhoneActive(false, 'Ready for a new call.');
+  surveyMusic.pause();
+  ui.closeSurvey();
+  surveyOpen = false;
   sessionStorage.removeItem(SESSION_KEY);
   const { phoneNumber, tickets } = state;
   Object.assign(state, initialState(), { phoneNumber, tickets, connected: false });
   scene?.setPhoto(null);
   scene?.setPhase('pairing');
-  reconnectNow = true;
-  socket?.close();
+  scene?.goToLolzitron();
+  retries = 0;
   render();
+  connect();
 }
 
 async function loadConfig() {
