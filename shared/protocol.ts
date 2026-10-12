@@ -78,9 +78,11 @@ export type ServerMessage =
       prompt: PromptMessage | null;
       photo: string | null;
       tickets: Ticket[];
+      surveyPending: boolean;
     }
   | { type: 'state_changed'; phase: Phase; attempts: Attempts }
   | { type: 'paired' }
+  | { type: 'show_survey' }
   | { type: 'selfie_received'; photo: string }
   | { type: 'test_result'; stage: Stage; passed: boolean; note?: string }
   | { type: 'ticket_created'; ticket: Ticket; /** True only on the laptop of the caller who filed it. */ mine?: boolean }
@@ -88,4 +90,4 @@ export type ServerMessage =
   | { type: 'error'; message: string };
 
 /** Laptop -> server. */
-export type ClientMessage = { type: 'hello'; sessionId?: string };
+export type ClientMessage = { type: 'hello'; sessionId?: string } | { type: 'survey_completed'; selection: 'happy' };

@@ -75,7 +75,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   let playbackSequence = 0;
   const playbackWaiters = new Map<string, (played: boolean) => void>();
 
-  async function afterVerdict(fn: (s: CallSession) => ToolResult): Promise<string> {
+  async function afterVerdict(fn: (s: CallSession) => ToolResult | Promise<ToolResult>): Promise<string> {
     if (!session || !streamSid || closed) return json({ ok: false, error: 'No active paired call.' });
     if (!verdictAudioSent) return json({ ok: false, error: 'Speak the verdict aloud first, then call this tool again. Do not advance yet.' });
     const name = `verdict-${++playbackSequence}`;
@@ -93,7 +93,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     });
     if (!played || closed) return json({ ok: false, error: 'The verdict was not fully played. Stay at the current stage and repeat the verdict before retrying.' });
     verdictAudioSent = false;
-    return bound(fn);
+    return json(await fn(session));
   }
 
   const bound = (fn: (s: CallSession) => ToolResult): string => {
@@ -165,7 +165,11 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
         passed: z.boolean(),
         reason: z.string().describe('One short sentence explaining the decision.'),
       }),
-      execute: async ({ passed, reason }) => afterVerdict((s) => {
+      execute: async ({ passed, reason }) => afterVerdict(async (s) => {
+        if (passed && s.gauntlet.state().phase === 'selfie') {
+          const completed = await s.waitForSurvey();
+          if (!completed || closed) return { ok: false, error: 'The call ended during the survey.' };
+        }
         const result = s.gauntlet.reportSelfieResult(passed, reason);
         return result.ok ? { ...result, instruction: passed ? 'The critique has been spoken. Do not repeat it. Call start_human_check now.' : 'The critique has been spoken. Do not repeat it. Call request_selfie for the stricter requirement now.' } : result;
       }),
@@ -274,6 +278,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   function end(reason: 'hangup' | 'timeout') {
     if (closed) return;
     closed = true;
+    session?.cancelSurvey();
     clearTimeout(maxTimer);
     for (const finish of playbackWaiters.values()) finish(false);
     if (session) {

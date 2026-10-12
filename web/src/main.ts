@@ -13,6 +13,23 @@ const appRoot = document.getElementById('app') as HTMLElement;
 
 const whirr = new Audio('/audio/whirr.m4a');
 const allonsy = new Audio('/audio/allonsy.m4a');
+const surveyMusic = new Audio('/audio/opus-1-clip.mp3');
+surveyMusic.loop = true;
+let surveyOpen = false;
+
+function showSurvey() {
+  if (surveyOpen) return;
+  surveyOpen = true;
+  whirr.pause();
+  allonsy.pause();
+  playCue(surveyMusic);
+  void ui.showSurvey().then(() => {
+    surveyMusic.pause();
+    surveyMusic.currentTime = 0;
+    surveyOpen = false;
+    send({ type: 'survey_completed', selection: 'happy' });
+  });
+}
 
 function playCue(audio: HTMLAudioElement) {
   audio.currentTime = 0;
@@ -95,6 +112,10 @@ function handle(message: ServerMessage) {
       sessionStorage.setItem(SESSION_KEY, message.sessionId);
       scene?.setPhase(message.phase);
       scene?.setPhoto(message.photo);
+      if (message.surveyPending) showSurvey();
+      break;
+    case 'show_survey':
+      showSurvey();
       break;
     case 'state_changed':
       state.phase = message.phase;
@@ -130,6 +151,9 @@ function handle(message: ServerMessage) {
       if (message.mine) state.myTicket = message.ticket;
       break;
     case 'call_ended':
+      surveyMusic.pause();
+      ui.closeSurvey();
+      surveyOpen = false;
       state.ended = message.reason;
       break;
     case 'error':

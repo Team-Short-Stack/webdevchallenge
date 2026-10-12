@@ -20,11 +20,14 @@ function el<K extends keyof HTMLElementTagNameMap>(
 
 export interface UiApi {
   showWelcome(): void;
+  showSurvey(): Promise<void>;
+  closeSurvey(): void;
   render(state: AppState, focusedStage: Stage | null): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
 }
 
 export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
+  let started = false;
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
   const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
@@ -48,8 +51,38 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
   );
   root.append(welcome);
   welcome.querySelector('button')?.addEventListener('click', () => {
+    started = true;
     welcome.close();
     handlers.onGetStarted();
+  });
+
+  const surveyChoices = el('div', { class: 'survey-choices', 'aria-label': 'Call satisfaction' });
+  const faces = [
+    ['Angry', 'angry'],
+    ['Sad', 'sad'],
+    ['Neutral', 'neutral'],
+    ['Happy', 'happy'],
+  ];
+  for (const [label, mood] of faces) {
+    surveyChoices.append(el('button', {
+      type: 'button', class: `survey-face survey-face-${mood}`, 'aria-label': label!,
+      ...(mood === 'happy' ? { autofocus: '' } : { disabled: '' }),
+    }, el('span', { 'aria-hidden': 'true' }), el('small', {}, label!)));
+  }
+  const survey = el('dialog', {
+    class: 'welcome survey', 'aria-labelledby': 'survey-title', 'aria-describedby': 'survey-message',
+  }, el('div', { class: 'slip' },
+    el('h1', { id: 'survey-title' }, 'how is this call going so far?'),
+    el('p', { id: 'survey-message', class: 'summary' }, 'make a selection to continue.'),
+    surveyChoices,
+  ));
+  root.append(survey);
+  survey.addEventListener('cancel', (event) => event.preventDefault());
+  let completeSurvey: (() => void) | null = null;
+  survey.querySelector('.survey-face-happy')?.addEventListener('click', () => {
+    survey.close();
+    completeSurvey?.();
+    completeSurvey = null;
   });
 
   let promptKey = '';
@@ -174,6 +207,16 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
   }
 
   return {
+    closeSurvey() {
+      survey.close();
+      completeSurvey = null;
+    },
+    showSurvey() {
+      return new Promise<void>((resolve) => {
+        completeSurvey = resolve;
+        if (!survey.open) survey.showModal();
+      });
+    },
     showWelcome() {
       if (!welcome.open) welcome.showModal();
     },
@@ -182,7 +225,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       welcomePhone.hidden = !state.phoneNumber;
       // Prompt (rebuilt only when it changes, so the QR code and countdown don't flicker)
       const next = buildPrompt(state);
-      promptHost.hidden = state.phase === 'pairing' && focusedStage !== 'pairing';
+      promptHost.hidden = state.phase === 'pairing' && (!started || focusedStage !== 'pairing');
       if (next.key !== promptKey) {
         promptKey = next.key;
         if (!next.key.startsWith('qr:')) window.clearInterval(countdownTimer);

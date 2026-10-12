@@ -151,6 +151,7 @@ await app.register(async (scope) => {
   // ------------------------------------------------------------- laptop
   const clientMessage = z.discriminatedUnion('type', [
     z.object({ type: z.literal('hello'), sessionId: z.string().optional() }),
+    z.object({ type: z.literal('survey_completed'), selection: z.literal('happy') }),
   ]);
 
   scope.get('/ws/laptop', { websocket: true }, (socket, request) => {
@@ -166,7 +167,9 @@ await app.register(async (scope) => {
       } catch {
         return;
       }
-      if (message.type === 'hello') {
+      if (message.type === 'survey_completed') {
+        session?.completeSurvey();
+      } else if (message.type === 'hello') {
         if (session) return;
         const existing = message.sessionId ? registry.get(message.sessionId) : undefined;
         if (existing && !existing.gauntlet.isEnded) {

@@ -40,6 +40,26 @@ export class CallSession {
   readonly laptops = new Set<WebSocket>();
   readonly gauntlet: Gauntlet;
   phone: PhoneLink | null = null;
+  private surveyResolver: ((completed: boolean) => void) | null = null;
+
+  waitForSurvey(): Promise<boolean> {
+    return new Promise((resolve) => {
+      this.surveyResolver = resolve;
+      this.send({ type: 'show_survey' });
+    });
+  }
+
+  completeSurvey() {
+    const resolve = this.surveyResolver;
+    this.surveyResolver = null;
+    resolve?.(true);
+  }
+
+  cancelSurvey() {
+    const resolve = this.surveyResolver;
+    this.surveyResolver = null;
+    resolve?.(false);
+  }
 
   constructor(
     readonly code: string,
@@ -85,6 +105,7 @@ export class CallSession {
       prompt: s.prompt,
       photo: s.photo,
       tickets: this.tickets.recent(),
+      surveyPending: this.surveyResolver !== null,
     };
   }
 }
