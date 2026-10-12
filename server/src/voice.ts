@@ -48,6 +48,8 @@ const json = (result: ToolResult): string => JSON.stringify(result);
 
 export interface VoiceDeps {
   config: Config;
+  /** In-process harness override; production always uses the default OpenAI endpoint. */
+  realtimeUrl?: string;
   registry: Registry;
   log: { info: (o: object, m?: string) => void; warn: (o: object, m?: string) => void; error: (o: object, m?: string) => void };
   /** Called exactly once when the call is over. */
@@ -203,7 +205,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     voice: config.voice,
   });
 
-  const transport = new TwilioRealtimeTransportLayer({ twilioWebSocket: socket });
+  const transport = new TwilioRealtimeTransportLayer({ twilioWebSocket: socket, url: deps.realtimeUrl });
   const realtime = new RealtimeSession(agent, {
     transport,
     model: config.realtimeModel,

@@ -87,8 +87,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       throw new Error(`VOICE_TRANSPORT=tac requires: ${missing.join(', ')}.`);
     }
   }
-  if (e.ENABLE_DEV_PHONE && (!e.TWILIO_TWIML_APP_SID || !e.DEV_PHONE_ACCESS_CODE)) {
-    throw new Error('ENABLE_DEV_PHONE=true requires TWILIO_TWIML_APP_SID and DEV_PHONE_ACCESS_CODE (at least 16 characters).');
+  if (e.ENABLE_DEV_PHONE) {
+    const required = [
+      ['TWILIO_ACCOUNT_SID', e.TWILIO_ACCOUNT_SID],
+      ['TWILIO_API_KEY', e.TWILIO_API_KEY],
+      ['TWILIO_API_SECRET', e.TWILIO_API_SECRET],
+      ['TWILIO_PHONE_NUMBER', e.TWILIO_PHONE_NUMBER],
+      ['TWILIO_TWIML_APP_SID', e.TWILIO_TWIML_APP_SID],
+      ['DEV_PHONE_ACCESS_CODE', e.DEV_PHONE_ACCESS_CODE],
+      ['TWILIO_AUTH_TOKEN', e.TWILIO_AUTH_TOKEN],
+      ['PUBLIC_BASE_URL', e.PUBLIC_BASE_URL],
+    ] as const;
+    const missing = required.filter(([, value]) => !value).map(([name]) => name);
+    if (missing.length) throw new Error(`ENABLE_DEV_PHONE=true requires: ${missing.join(', ')}.`);
   }
   return {
     port: e.PORT,

@@ -31,7 +31,7 @@ npm install
 npm test               # server tests, no network needed
 npm run typecheck      # server and web
 npm run build          # web app into web/dist
-npm run dev            # server with reload (needs .env.development)
+npm run dev            # server with reload (needs .env)
 ```
 
 ## Guidance for ChatGPT and Codex

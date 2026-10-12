@@ -29,6 +29,7 @@ phone camera --scans QR on laptop--> selfie page --> your server --> voice agent
 
 One Node server owns everything: the Twilio webhook and audio stream, the per-call state machine, the laptop
 WebSocket, the selfie upload, and the static web app. See `docs/DESIGN.md` and `CLAUDE.md`.
+For a current technology summary and system diagram, see [docs/PROJECT_OVERVIEW.md](docs/PROJECT_OVERVIEW.md).
 
 ## Quick start (laptop plus ngrok)
 
@@ -39,12 +40,12 @@ value comes from.
 ```bash
 nvm use                       # if you use nvm; the repo pins Node 22 via .nvmrc
 npm install
-cp .env.example .env.development # then fill in OPENAI_API_KEY and the rest
+cp .env.example .env # then fill in OPENAI_API_KEY and the rest
 npm run build                 # builds the web app that the server serves
 ngrok http 5050               # copy the https URL it prints
 ```
 
-1. Put that URL in `.env.development` as `PUBLIC_BASE_URL` (no trailing slash), and your Twilio number in
+1. Put that URL in `.env` as `PUBLIC_BASE_URL` (no trailing slash), and your Twilio number in
    `PHONE_DISPLAY_NUMBER`.
 2. In the Twilio console, open your number, and under **Voice Configuration > A call comes in** set a webhook
    (HTTP POST) to `https://YOUR-NGROK-URL/incoming-call`.
@@ -68,15 +69,16 @@ instead of a physical phone. This uses Twilio's Voice JavaScript SDK and still r
 through the app. It is intended for a private test environment such as the Railway `Sandbox` environment.
 Calls use Twilio and OpenAI and incur the usual usage charges.
 
-1. In Twilio Console, create a **TwiML App** under **Develop > Voice > TwiML Apps**.
+1. In Twilio Console, open your existing **TwiML App** under **Develop > Voice > TwiML Apps** (or create one).
 2. Set its Voice Request URL to the public URL of the app environment followed by `/incoming-call`, for
    example `https://YOUR-SANDBOX-DOMAIN.up.railway.app/incoming-call`. Choose **HTTP POST** and save.
-   This is the TwiML App URL; your Twilio phone number can keep its existing webhook configuration.
+   This is the TwiML App URL; reuse your existing Twilio number and credentials. Your phone number can keep its existing webhook. A TwiML App has one Voice Request URL: browser calls using that App SID will reach whichever environment that URL points to.
 3. In Railway, select the `Sandbox` environment and set these variables on the app service:
 
    ```text
+   VOICE_TRANSPORT=tac
    ENABLE_DEV_PHONE=true
-   TWILIO_TWIML_APP_SID=AP...   # SID of the TwiML App created above
+   TWILIO_TWIML_APP_SID=AP...   # SID of your TwiML App
    DEV_PHONE_ACCESS_CODE=       # private random code, at least 16 characters
    ```
 
@@ -94,7 +96,7 @@ off by setting `ENABLE_DEV_PHONE=false` in Sandbox when you finish testing.
 
 ## Configuration
 
-Everything is an environment variable; see `.env.example` for the full, commented list.
+Use a single ignored `.env` for local configuration; both `npm run dev` and `npm start` read it. Railway uses service variables configured in each environment, so set the values directly in Sandbox. See `.env.example` for the full, commented list.
 
 | Variable | Purpose |
 | --- | --- |
@@ -155,3 +157,13 @@ Triggers, and set spend limits with OpenAI. Never commit `.env`; turn on GitHub 
 Calls are not recorded. The selfie is held in server memory only, sent to OpenAI for judging, and dropped when
 the session is swept. Tickets are kept in memory and disappear on restart. Tell callers about the photo before
 the QR code appears if you use this beyond a private demo.
+
+### Automated call-flow harness
+
+Run `npm run test:call-flow` for the voice integration harness, or `npm test` for all tests. No service credentials or billed calls are needed. The harness runs real local HTTP and WebSocket connections with the installed TAC and OpenAI Agents SDKs; a local simulator supplies model audio and tool events.
+
+Both `legacy` and `tac` are covered: browser pairing, incoming-call signatures, caller restrictions, concurrency limits, audio forwarding, playback acknowledgements and interruptions, selfie upload/image injection, human checks, final hold, and dropped-call cleanup. Dev Phone token authentication, signing, expiry, and rate limits are also checked. These tests do not verify actual microphone audio, Twilio networking, or model behavior; use a live Dev Phone call for those.
+
+The OpenAI SDK packages are pinned together through root `overrides`. TAC has an optional older Agents peer dependency; allowing mixed versions makes the Twilio transport emit tool events that the newer session cannot dispatch.
+
+For local Dev Phone testing, fill the ignored `.env` with `VOICE_TRANSPORT=tac`, `ENABLE_DEV_PHONE=true`, the Twilio account/auth token, API Key SID and matching secret, phone number, TwiML App SID, and a `DEV_PHONE_ACCESS_CODE` of at least 16 characters. Set `PUBLIC_BASE_URL` to your HTTPS tunnel URL. Use your existing TwiML App with its Voice request URL set to `<PUBLIC_BASE_URL>/incoming-call` (POST). For Railway Sandbox testing, set these same values in Sandbox service variables and use the Sandbox HTTPS domain as `PUBLIC_BASE_URL`. Build with `npm run build`, then start with `npm run dev`; open http://localhost:5050 and use the Dev Phone panel.

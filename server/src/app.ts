@@ -13,7 +13,7 @@ import { StreamGate } from './gate.js';
 import { Registry, type CallSession } from './sessions.js';
 import { handlePhoneCall } from './voice.js';
 
-export async function buildApp(config: Config, options: { logger?: boolean } = {}) {
+export async function buildApp(config: Config, options: { logger?: boolean; realtimeUrl?: string } = {}) {
 const app = Fastify({ logger: options.logger === false ? false : { level: 'info' }, bodyLimit: 1024 * 1024 });
 
   const publicBase = (hostHeader: string | undefined, protoHeader: string | undefined): string =>
@@ -97,7 +97,7 @@ if (config.voiceTransport === 'legacy') app.post('/incoming-call', async (reques
   }
 
   const from = params.From;
-  if (config.allowedCallers.length > 0 && (!from || (!from.startsWith('client:dev_') && !config.allowedCallers.includes(from)))) {
+  if (config.allowedCallers.length > 0 && (!from || (!(config.enableDevPhone && from.startsWith('client:dev_')) && !config.allowedCallers.includes(from)))) {
     request.log.warn({ from: maskNumber(from) }, 'rejected caller not on the allow list');
     return rejectCall(reply, 'This line is closed to you. Please try again never.');
   }
@@ -160,6 +160,7 @@ await app.register(async (scope) => {
       }
       activeCalls += 1;
       void handlePhoneCall(socket, {
+        realtimeUrl: options.realtimeUrl,
         config,
         registry,
         log: request.log,
@@ -272,6 +273,7 @@ if (existsSync(webDist)) {
     const { attachTacServer } = await import('./tac-transport.js');
     const attached = await attachTacServer({
         app,
+        realtimeUrl: options.realtimeUrl,
         config,
         registry,
         gate,

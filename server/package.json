@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --env-file-if-exists=../.env.development src/index.ts",
+    "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
     "start": "tsx --env-file-if-exists=../.env src/index.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test \"src/**/*.test.ts\""
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:call-flow": "tsx --test src/call-flow.test.ts"
   },
   "dependencies": {
     "@fastify/formbody": "^9.0.0",
