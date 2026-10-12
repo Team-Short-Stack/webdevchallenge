@@ -153,15 +153,19 @@ for (const transport of ['legacy', 'tac'] as const) {
       const model = await h.getModel();
       const settings = await model.messages.wait(e => e.type === 'session.update');
       assert.equal(settings.session.audio.input.format.type, 'audio/pcmu');
+      assert.equal(settings.session.audio.input.turn_detection.threshold, 0.6);
+      assert.equal(settings.session.audio.input.turn_detection.interrupt_response, false);
+      assert.equal(settings.session.audio.input.noise_reduction.type, 'far_field');
       await model.messages.wait(e => e.type === 'conversation.item.create' && JSON.stringify(e.item).includes('phone call is now connected'));
       const payload = Buffer.alloc(160, 0xff).toString('base64');
       phone.socket.send(JSON.stringify({ event: 'media', media: { payload, timestamp: '0' } }));
       await model.messages.wait(e => e.type === 'input_audio_buffer.append' && e.audio === payload);
       assert.equal((await h.tool('request_selfie')).ok, false, 'cannot skip pairing');
-      assert.equal((await h.tool('pair_session', { code: snapshot.code })).ok, true);
+      assert.equal((await h.tool('pair_session', { code: snapshot.code, spoken: snapshot.code })).ok, false, 'must wait for done');
+      assert.equal((await h.tool('pair_session', { code: snapshot.code, spoken: `${snapshot.code} done` })).ok, true);
       await laptop.messages.wait(e => e.type === 'paired');
-      assert.equal((await h.tool('start_language_test')).ok, true);
       await laptop.messages.wait(e => e.type === 'show_language_prompt');
+      assert.equal(h.registry.get(snapshot.sessionId)?.gauntlet.phase, 'language', 'pairing immediately starts stage two');
       assert.equal((await h.tool('report_language_result', { passed: true })).ok, false, 'cannot advance before speaking');
 
       // A barge-in must cancel an unacknowledged verdict and leave the UI at language.
@@ -189,7 +193,10 @@ for (const transport of ['legacy', 'tac'] as const) {
       const replay = await fetch(`${h.url}/api/selfie?t=${selfieToken}`, { method: 'POST', headers: { 'content-type': 'image/jpeg' }, body: photo });
       assert.equal(replay.status, 404, 'photo links are single-use');
       await h.audio();
-      assert.equal((await h.tool('report_selfie_result', { passed: true, reason: 'Fixture meets the requirement.' })).ok, true);
+      const selfieResult = h.tool('report_selfie_result', { passed: true, reason: 'Fixture meets the requirement.' });
+      await laptop.messages.wait(e => e.type === 'show_survey');
+      laptop.socket.send(JSON.stringify({ type: 'survey_completed', selection: 'happy' }));
+      assert.equal((await selfieResult).ok, true);
       assert.equal((await h.tool('start_human_check')).ok, true);
       const prompt = await laptop.messages.wait(e => e.type === 'show_human_check');
       const answer = HUMAN_CHECK_IDS.map(buildHumanCheck).find(check => check.imageUrl === prompt.imageUrl);
@@ -241,7 +248,7 @@ for (const transport of ['legacy', 'tac'] as const) {
       await h.webhook('/incoming-call', { From: fixtures.ALLOWED_CALLERS, CallSid: 'CA-drop' });
       const phone = await socketAt(`${h.ws}/media-stream`, t);
       phone.socket.send(JSON.stringify({ event: 'start', start: { streamSid: 'MZ-drop', callSid: 'CA-drop' } }));
-      assert.equal((await h.tool('pair_session', { code: snapshot.code })).ok, true);
+      assert.equal((await h.tool('pair_session', { code: snapshot.code, spoken: `${snapshot.code} done` })).ok, true);
       const closed = once(phone.socket, 'close');
       phone.socket.close();
       await closed;

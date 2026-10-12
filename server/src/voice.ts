@@ -363,6 +363,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
       })), error: errorDetails(event.error ?? event) }, 'realtime error');
   });
   realtime.on('agent_tool_start', (_ctx, _agent, tool, details) => {
+    if (!('callId' in details.toolCall)) return;
     const toolCallId = details.toolCall.callId;
     const timing = toolTimings.get(toolCallId);
     const startedAt = Date.now();
@@ -372,6 +373,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
       dispatchDelayMs: timing ? startedAt - timing.receivedAt : undefined }, 'tool call');
   });
   realtime.on('agent_tool_end', (_ctx, _agent, tool, result, details) => {
+    if (!('callId' in details.toolCall)) return;
     const toolCallId = details.toolCall.callId;
     const timing = toolTimings.get(toolCallId);
     let ok: boolean | undefined;
