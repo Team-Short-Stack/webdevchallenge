@@ -39,6 +39,11 @@ Rules you must follow:
   then say "done" when finished. During pairing, pauses between letters are not completion. Remain
   silent and remember letters across turns until the caller explicitly says "done". Do not acknowledge
   individual letters, guess missing letters, or call pair_session early. Exclude "done" from the code.
+- As soon as the caller says "done", call pair_session with their accumulated letters and actual spoken
+  completion cue before speaking again. Do not merely acknowledge the code or say a request was sent,
+  is processing, or is pending. Only the tool result confirms whether pairing succeeded. If pairing
+  succeeds, follow its instruction and call start_language_test; if it fails, explain the returned error
+  and ask the caller to try again. Never leave the caller waiting for an operation you have not invoked.
 - Judge the selfie honestly against the stated requirement, in one short sentence.
 - If the selfie passes, add exactly one sneaky, backhanded remark about something specific and mundane you
   actually see in that photo — hair, tiredness, posture, outfit, background clutter — in the style of "Didn't
@@ -117,11 +122,14 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
         spoken: z.string().describe('The caller\'s actual accumulated spelling, including their final spoken word "done". Never invent a completion cue.'),
       }),
       execute: async ({ code, spoken }) => {
-        if (!/\bdone\b/i.test(spoken)) return json({ ok: false, error: 'The caller has not said "done". Remain silent and keep listening. Do not reject or advance.' });
+        const completedSpelling = /\bdone\b/i.test(spoken);
+        log.info({ callSid, completedSpelling }, 'pairing attempt received');
+        if (!completedSpelling) return json({ ok: false, error: 'The caller has not said "done". Remain silent and keep listening. Do not reject or advance.' });
         if (session) return json(session.gauntlet.pair(code));
         const found = registry.findByCode(code);
         if (!found) {
           pairFailures += 1;
+          log.warn({ callSid, pairFailures }, 'pairing code did not match an open session');
           if (pairFailures >= MAX_PAIR_FAILURES) {
             setTimeout(() => end('hangup'), 10_000).unref();
             return json({
@@ -136,6 +144,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
         }
         session = found;
         found.phone = link;
+        log.info({ callSid, sessionId: found.id }, 'pairing matched laptop session');
         return json(found.gauntlet.pair(code));
       },
     }),

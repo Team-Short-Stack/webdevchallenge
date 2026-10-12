@@ -53,7 +53,7 @@ class AppVoiceProvider extends VoiceProvider {
     const vr = new twilio.twiml.VoiceResponse();
     vr.say(
       { voice: 'Polly.Brian-Neural', language: 'en-GB' },
-      'Thank you for calling Universal Help Care. Your call is important to us. Please find the letter code on your screen, and spell it out when prompted.',
+      'Thank you for calling Universal Help Care. Your call is important to us. Please find the letter code on your screen. Wait for the agent to ask, then spell it out and say done when finished.',
     );
     const connect = vr.connect();
     connect.stream({ url: `wss://${new URL(base).host}/media-stream` })
