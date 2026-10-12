@@ -420,7 +420,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       surfaceMaterial.bumpMap = surfaceMaterial.map;
       surfaceMaterial.bumpScale = 0.045;
       surfaceMaterial.roughness = 0.82;
-      trolleyTrack.rotation.x = Math.PI / 2 - 0.45;
+      trolleyTrack.rotation.x = -Math.PI / 2 + 0.45;
       mesh.add(trolleyTrack);
       for (const [inner, outer, opacity, color] of [
         [1.45, 1.75, 0.7, '#d9c690'],
