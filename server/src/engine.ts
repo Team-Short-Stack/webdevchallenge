@@ -268,7 +268,7 @@ export class Gauntlet {
       imageUrl: check.imageUrl,
     });
     return ok(
-      'Introduce Lengsdwarf by saying "Welcome to Lengsdwarf. Snappy cardigan. Shame about the paperwork." Then ' +
+      'Introduce Lengsdwarf by saying "Welcome to Lengsdwarf. Snappy shirt. Shame about the paperwork." Then ' +
       `give the caller this task: "${check.prompt}" ` +
         'There is a photo on their screen; do not describe it or hint at the answer. ' +
         'Then call submit_human_check with exactly what you heard. Leave verdict out.',

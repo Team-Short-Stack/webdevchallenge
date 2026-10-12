@@ -17,7 +17,7 @@ with measured pacing and dry delivery. Do not imitate the caller's accent or exa
 
 How the call works. The server decides what happens next, not you. You move the caller through stages
 using tools, and each tool result tells you exactly what to say and which tool to call next:
-  1. pair_session: the caller reads a short code from their laptop screen, letter by letter.
+  1. pair_session: the caller reads a short code from their laptop screen, letter by letter, then says "done".
   2. start_language_test, then report_language_result.
   3. request_selfie. The caller scans a QR code on their laptop. When the photo arrives you will get a
      system message with the image; judge it and call report_selfie_result.
@@ -35,7 +35,10 @@ Rules you must follow:
   say the pronunciation has been logged as an incident before reporting the failure.
 - When a photo arrives, immediately deliver the one-sentence assessment and, if accepted, your
   backhanded remark. Say these before calling report_selfie_result. Do not repeat them afterward.
-- Start the conversation immediately when connected: ask the caller to spell the code on their screen.
+- Start the conversation immediately when connected: ask the caller to spell the code on their screen,
+  then say "done" when finished. During pairing, pauses between letters are not completion. Remain
+  silent and remember letters across turns until the caller explicitly says "done". Do not acknowledge
+  individual letters, guess missing letters, or call pair_session early. Exclude "done" from the code.
 - Judge the selfie honestly against the stated requirement, in one short sentence.
 - If the selfie passes, add exactly one sneaky, backhanded remark about something specific and mundane you
   actually see in that photo — hair, tiredness, posture, outfit, background clutter — in the style of "Didn't
@@ -99,7 +102,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
     if (!session) {
       return json({
         ok: false,
-        error: 'The caller is not paired yet. Ask for the code on their screen, spelled out, and call pair_session.',
+        error: 'The caller is not paired yet. Ask them to spell the code and say "done" when finished. Wait for "done" before calling pair_session.',
       });
     }
     return json(fn(session));
@@ -108,9 +111,13 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   const tools = [
     tool({
       name: 'pair_session',
-      description: 'Pair this phone call with the caller\'s laptop using the code they spelled out.',
-      parameters: z.object({ code: z.string().describe('The letters the caller said, for example "F M L".') }),
-      execute: async ({ code }) => {
+      description: 'Only after the caller explicitly says "done", pair the call using all the letters they spelled out. Never call during a pause between letters.',
+      parameters: z.object({
+        code: z.string().describe('Only the letters the caller said, for example "B R B". Exclude "done".'),
+        spoken: z.string().describe('The caller\'s actual accumulated spelling, including their final spoken word "done". Never invent a completion cue.'),
+      }),
+      execute: async ({ code, spoken }) => {
+        if (!/\bdone\b/i.test(spoken)) return json({ ok: false, error: 'The caller has not said "done". Remain silent and keep listening. Do not reject or advance.' });
         if (session) return json(session.gauntlet.pair(code));
         const found = registry.findByCode(code);
         if (!found) {
@@ -124,7 +131,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
           }
           return json({
             ok: false,
-            error: 'No open session has that code. Ask the caller to spell out the code on their screen again.',
+            error: 'No open session has that code. Ask the caller to spell the code again and say "done" when finished. Wait for "done".',
           });
         }
         session = found;
@@ -228,7 +235,7 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
   function greet() {
     if (closed || greeted || !streamStarted || !realtimeReady) return;
     greeted = true;
-    realtime.sendMessage('The phone call is now connected. Ask the caller to spell the letter code on their laptop screen, then wait for their reply.');
+    realtime.sendMessage('The phone call is now connected. Ask the caller to spell the letter code on their laptop screen and say "done" when finished. Stay silent through pauses between letters and wait for "done" before pairing.');
   }
   realtime.on('transport_event', (event) => {
     if (event.type === 'twilio_message' && event.message?.event === 'start') {

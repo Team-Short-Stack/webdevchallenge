@@ -31,9 +31,13 @@ const SPECS: Record<Stage, PlanetSpec> = {
   ticket: { radius: 4.8, base: '#dcc58f', accents: ['#c3a96f', '#efdcae', '#b09257'], kind: 'bands', ring: true },
 };
 
-const POSITIONS: Record<Stage, THREE.Vector3> = Object.fromEntries(
-  STAGES.map((stage, i) => [stage, new THREE.Vector3(i * 13 - 26, Math.sin(i * 1.4) * 3.0, -Math.cos(i * 0.9) * 4)]),
-) as Record<Stage, THREE.Vector3>;
+const POSITIONS: Record<Stage, THREE.Vector3> = {
+  pairing: new THREE.Vector3(-27, -3, 3),
+  language: new THREE.Vector3(-15, 9, -5),
+  selfie: new THREE.Vector3(0, 14, -10),
+  humanCheck: new THREE.Vector3(15, 9, -5),
+  ticket: new THREE.Vector3(29, -3, 3),
+};
 
 const LED_RED = new THREE.Color('#ff4a3d');
 const PASS_TEAL = new THREE.Color('#2ee6c8');
@@ -96,24 +100,51 @@ function planetTexture(spec: PlanetSpec, seed: number): THREE.CanvasTexture {
       y += bandHeight * (0.6 + rand() * 0.6);
     }
   } else if (spec.kind === 'earth') {
-    for (let i = 0; i < 70; i++) {
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = i % 3 === 0 ? (spec.accents[1] ?? '#8a7a4a') : (spec.accents[0] ?? '#3f8a52');
-      ctx.beginPath();
-      ctx.ellipse(rand() * w, 90 + rand() * (h - 180), 20 + rand() * 90, 14 + rand() * 50, rand() * Math.PI, 0, Math.PI * 2);
-      ctx.fill();
+    const layers = [4, 8, 16, 32, 64, 128].map((size) => ({
+      size, values: Float32Array.from({ length: size * size }, () => rand()),
+    }));
+    const noise = (u: number, v: number) => {
+      let value = 0;
+      let weight = 0;
+      layers.forEach(({ size, values }, index) => {
+        const x = u * size;
+        const y = v * size;
+        const ix = Math.floor(x);
+        const iy = Math.floor(y);
+        const fx = x - ix;
+        const fy = y - iy;
+        const sx = fx * fx * (3 - 2 * fx);
+        const sy = fy * fy * (3 - 2 * fy);
+        const at = (dx: number, dy: number) => values[((iy + dy) % size) * size + ((ix + dx) % size)]!;
+        const amplitude = 1 / (2 ** index);
+        value += ((at(0, 0) * (1 - sx) + at(1, 0) * sx) * (1 - sy) +
+          (at(0, 1) * (1 - sx) + at(1, 1) * sx) * sy) * amplitude;
+        weight += amplitude;
+      });
+      return value / weight;
+    };
+    const pixels = ctx.createImageData(w, h);
+    for (let y = 0; y < h; y++) {
+      const latitude = Math.abs(y / h * 2 - 1);
+      for (let x = 0; x < w; x++) {
+        const elevation = noise(x / w, y / h);
+        const detail = rand() * 0.06;
+        let color: number[];
+        if (latitude > 0.91 + (elevation - 0.5) * 0.16) color = [210, 225, 232];
+        else if (elevation < 0.5) {
+          const coast = Math.max(0, (elevation - 0.46) / 0.04);
+          color = [9 + coast * 12, 28 + coast * 35, 56 + coast * 32];
+        } else {
+          const mountain = Math.max(0, (elevation - 0.61) * 4);
+          const dry = Math.max(0, 1 - Math.abs(latitude - 0.35) * 7);
+          color = [42 + dry * 70 + mountain * 90, 67 + dry * 29 + mountain * 65, 39 + dry * 24 + mountain * 70];
+        }
+        const offset = (y * w + x) * 4;
+        for (let channel = 0; channel < 3; channel++) pixels.data[offset + channel] = color[channel]! * (0.94 + detail);
+        pixels.data[offset + 3] = 255;
+      }
     }
-    for (let i = 0; i < 120; i++) {
-      ctx.globalAlpha = 0.12 + rand() * 0.2;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.ellipse(rand() * w, rand() * h, 30 + rand() * 90, 4 + rand() * 12, 0, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 0.85;
-    ctx.fillStyle = '#f2f6fa';
-    ctx.fillRect(0, 0, w, 26);
-    ctx.fillRect(0, h - 26, w, 26);
+    ctx.putImageData(pixels, 0, 0);
   } else {
     // craters
     for (let i = 0; i < 1400; i++) {
@@ -167,7 +198,9 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   }
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x070b16);
+  renderer.setClearColor(0x02040b);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -182,13 +215,13 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   controls.minDistance = 4;
   controls.maxDistance = 140;
 
-  scene.add(new THREE.AmbientLight(0x3a4a78, 0.9));
-  const sun = new THREE.DirectionalLight(0xfff0dc, 2.6);
-  sun.position.set(-30, 14, 28);
+  scene.add(new THREE.AmbientLight(0x526b9b, 0.25));
+  const sun = new THREE.DirectionalLight(0xffedd6, 3.6);
+  sun.position.set(-45, 22, 8);
   scene.add(sun);
 
   // Starfield
-  const starCount = 1800;
+  const starCount = 11000;
   const starPositions = new Float32Array(starCount * 3);
   const starRand = mulberry32(7);
   for (let i = 0; i < starCount; i++) {
@@ -201,8 +234,43 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   }
   const starGeometry = new THREE.BufferGeometry();
   starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xcfd9f5, size: 0.7, sizeAttenuation: true }));
+  const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xcfd9f5, size: 0.23, sizeAttenuation: true }));
   scene.add(stars);
+
+  const galaxyPositions = new Float32Array(16000 * 3);
+  for (let i = 0; i < 16000; i++) {
+    const angle = starRand() * Math.PI * 2;
+    const radius = 155 + starRand() * 85;
+    const spread = (starRand() + starRand() + starRand() - 1.5) * 22;
+    galaxyPositions[i * 3] = Math.cos(angle) * radius;
+    galaxyPositions[i * 3 + 1] = Math.sin(angle) * radius * 0.45 + spread;
+    galaxyPositions[i * 3 + 2] = Math.sin(angle) * radius * 0.9;
+  }
+  const galaxyGeometry = new THREE.BufferGeometry();
+  galaxyGeometry.setAttribute('position', new THREE.BufferAttribute(galaxyPositions, 3));
+  const galaxyBand = new THREE.Points(galaxyGeometry, new THREE.PointsMaterial({
+    color: '#adc2e5', size: 0.18, transparent: true, opacity: 0.5, depthWrite: false,
+  }));
+  galaxyBand.rotation.z = -0.35;
+  scene.add(galaxyBand);
+  const hazeCanvas = document.createElement('canvas');
+  hazeCanvas.width = hazeCanvas.height = 256;
+  const hazeContext = hazeCanvas.getContext('2d')!;
+  const hazeGradient = hazeContext.createRadialGradient(128, 128, 0, 128, 128, 128);
+  hazeGradient.addColorStop(0, 'rgba(110,125,185,0.16)');
+  hazeGradient.addColorStop(0.35, 'rgba(75,83,145,0.08)');
+  hazeGradient.addColorStop(1, 'rgba(20,25,60,0)');
+  hazeContext.fillStyle = hazeGradient;
+  hazeContext.fillRect(0, 0, 256, 256);
+  const hazeTexture = new THREE.CanvasTexture(hazeCanvas);
+  for (let i = 0; i < 12; i++) {
+    const haze = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: hazeTexture, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
+    }));
+    haze.position.set(-180 + i * 32, -65 + i * 11, -160);
+    haze.scale.set(90, 55, 1);
+    scene.add(haze);
+  }
 
   const mustacheMaterial = new THREE.MeshBasicMaterial({
     color: '#35251e', transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false,
@@ -231,73 +299,85 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     mesh.rotation.z = (i % 2 === 0 ? 1 : -1) * 0.08;
     scene.add(mesh);
 
-    if (stage === 'pairing') {
-      const surface = new THREE.PlaneGeometry(spec.radius * 1.4, spec.radius * 1.4, 48, 48);
-      const vertices = surface.getAttribute('position');
-      for (let vertex = 0; vertex < vertices.count; vertex++) {
-        const x = vertices.getX(vertex);
-        const y = vertices.getY(vertex);
-        vertices.setZ(vertex, Math.sqrt(spec.radius ** 2 - x ** 2 - y ** 2) + 0.015);
+    if (stage === 'language') {
+      const terrain = mesh.material as THREE.MeshStandardMaterial;
+      terrain.bumpMap = terrain.map;
+      terrain.bumpScale = 0.06;
+      terrain.roughness = 0.75;
+      const cloudCanvas = document.createElement('canvas');
+      cloudCanvas.width = 1024;
+      cloudCanvas.height = 512;
+      const cloudsContext = cloudCanvas.getContext('2d')!;
+      const cloudRandom = mulberry32(191);
+      for (let i = 0; i < 180; i++) {
+        const x = cloudRandom() * 1024;
+        const y = cloudRandom() * 512;
+        for (let puff = 0; puff < 24; puff++) {
+          const angle = puff * 0.28;
+          const distance = puff * 1.3;
+          const px = (x + Math.cos(angle) * distance + 1024) % 1024;
+          const py = y + Math.sin(angle) * distance * 0.45;
+          cloudsContext.fillStyle = `rgba(242,249,255,${0.025 + cloudRandom() * 0.07})`;
+          cloudsContext.beginPath();
+          cloudsContext.ellipse(px, py, 2 + cloudRandom() * 9, 1 + cloudRandom() * 4,
+            angle, 0, Math.PI * 2);
+          cloudsContext.fill();
+        }
       }
-      surface.computeVertexNormals();
-      mesh.add(new THREE.Mesh(surface, new THREE.MeshStandardMaterial({
+      const cloudTexture = new THREE.CanvasTexture(cloudCanvas);
+      cloudTexture.colorSpace = THREE.SRGBColorSpace;
+      const clouds = new THREE.Mesh(new THREE.SphereGeometry(spec.radius * 1.012, 64, 48),
+        new THREE.MeshStandardMaterial({ map: cloudTexture, transparent: true, opacity: 0.8, depthWrite: false, roughness: 1 }));
+      clouds.name = 'translatopia-clouds';
+      mesh.add(clouds);
+      mesh.add(new THREE.Mesh(new THREE.SphereGeometry(spec.radius * 1.025, 64, 48),
+        new THREE.ShaderMaterial({
+          transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide,
+          vertexShader: `varying vec3 atmosphereNormal; varying vec3 atmosphereView;
+            void main() {
+              vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
+              atmosphereNormal = normalize(normalMatrix * normal);
+              atmosphereView = normalize(-viewPosition.xyz);
+              gl_Position = projectionMatrix * viewPosition;
+            }`,
+          fragmentShader: `varying vec3 atmosphereNormal; varying vec3 atmosphereView;
+            void main() {
+              float rim = pow(1.0 - abs(dot(normalize(atmosphereNormal), normalize(atmosphereView))), 3.5);
+              gl_FragColor = vec4(0.16, 0.43, 1.0, rim * 0.28);
+            }`,
+        })));
+    }
+
+    if (stage === 'pairing') {
+      const globeMaterial = mesh.material as THREE.MeshStandardMaterial;
+      globeMaterial.transparent = true;
+      globeMaterial.opacity = 0;
+      globeMaterial.depthWrite = false;
+      const surface = new THREE.PlaneGeometry(spec.radius * 2.3, spec.radius * 2.3);
+      mesh.add(new THREE.Mesh(surface, new THREE.MeshBasicMaterial({
         map: new THREE.TextureLoader().load('/lolzitron-salmon.png', (texture) => {
           texture.colorSpace = THREE.SRGBColorSpace;
         }),
         transparent: true,
         alphaTest: 0.1,
-        roughness: 0.95,
-        polygonOffset: true,
-        polygonOffsetFactor: -1,
+        toneMapped: false,
       })));
     }
 
     if (stage === 'humanCheck') {
-      const radius = spec.radius * 1.06;
-      const yarn = new THREE.MeshStandardMaterial({
-        map: planetTexture({ radius, base: '#ffe36e', accents: ['#ffe36e', '#ff6aa2', '#54e0c1', '#a48bff'], kind: 'knit' }, 81),
-        roughness: 1,
-        side: THREE.DoubleSide,
-      });
-      const cardigan = new THREE.Mesh(
-        new THREE.SphereGeometry(radius, 64, 40, Math.PI / 2 + 0.22, Math.PI * 2 - 0.44, 0.6, 2.15),
-        yarn,
-      );
-      mesh.add(cardigan);
-
-      for (const side of [-1, 1]) {
-        const sleeve = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.35, 32, 24), yarn);
-        sleeve.scale.set(0.8, 1.65, 0.85);
-        sleeve.position.set(side * radius * 0.96, -radius * 0.12, 0);
-        sleeve.rotation.z = side * 0.22;
-        mesh.add(sleeve);
-      }
-
-      const trim = new THREE.MeshStandardMaterial({ color: '#e5cfac', roughness: 1 });
-      for (const side of [-1, 1]) {
-        const edge = new THREE.Mesh(new THREE.TorusGeometry(radius, radius * 0.055, 8, 64, 2.15), trim);
-        edge.rotation.set(0, Math.PI / 2 - side * 0.22, Math.PI / 2 - 2.75);
-        mesh.add(edge);
-      }
-      for (let i = 0; i < 4; i++) {
-        const y = radius * (0.35 - i * 0.25);
-        const button = new THREE.Mesh(new THREE.SphereGeometry(radius * 0.055, 12, 8),
-          new THREE.MeshStandardMaterial({ color: '#523d31', roughness: 0.7 }));
-        button.position.set(radius * 0.25, y, Math.sqrt(radius * radius - y * y - (radius * 0.25) ** 2));
-        mesh.add(button);
-      }
-
-      const rand = mulberry32(82);
-      const fibers: number[] = [];
-      for (let i = 0; i < 2200; i++) {
-        const phi = Math.PI / 2 + 0.22 + rand() * (Math.PI * 2 - 0.44);
-        const theta = 0.6 + rand() * 2.15;
-        const direction = new THREE.Vector3(-Math.cos(phi) * Math.sin(theta), Math.cos(theta), Math.sin(phi) * Math.sin(theta));
-        fibers.push(...direction.clone().multiplyScalar(radius).toArray(), ...direction.multiplyScalar(radius + 0.02 + rand() * 0.035).toArray());
-      }
-      const fuzz = new THREE.BufferGeometry();
-      fuzz.setAttribute('position', new THREE.Float32BufferAttribute(fibers, 3));
-      mesh.add(new THREE.LineSegments(fuzz, new THREE.LineBasicMaterial({ color: '#e5cfac', transparent: true, opacity: 0.35 })));
+      const globeMaterial = mesh.material as THREE.MeshStandardMaterial;
+      globeMaterial.transparent = true;
+      globeMaterial.opacity = 0;
+      globeMaterial.depthWrite = false;
+      mesh.add(new THREE.Mesh(new THREE.PlaneGeometry(spec.radius * 2.6, spec.radius * 2.6),
+        new THREE.MeshBasicMaterial({
+          map: new THREE.TextureLoader().load('/lengsdwarf-cardigan.png', (texture) => {
+            texture.colorSpace = THREE.SRGBColorSpace;
+          }),
+          transparent: true,
+          alphaTest: 0.1,
+          toneMapped: false,
+        })));
     }
 
     if (spec.ring) {
@@ -516,6 +596,25 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   labelRoot.appendChild(neighLabel);
   const neighIndex = twinPlanets.length;
   twinPlanets.push({ mesh: neigh, label: neighLabel, homeY: -23 });
+  const bonusEmphasis = twinPlanets.map(({ mesh }) => {
+    const emphasis = { value: 0 };
+    mesh.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const materials: THREE.Material[] = Array.isArray(object.material) ? object.material : [object.material];
+      for (const material of materials) {
+        material.onBeforeCompile = (shader) => {
+          shader.uniforms.bonusEmphasis = emphasis;
+          shader.fragmentShader = 'uniform float bonusEmphasis;\n' + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace('#include <opaque_fragment>',
+            'float bonusGray = dot(outgoingLight, vec3(0.2126, 0.7152, 0.0722));\n' +
+            'outgoingLight = mix(vec3(bonusGray) * 0.55, outgoingLight, bonusEmphasis);\n' +
+            '#include <opaque_fragment>');
+        };
+        material.customProgramCacheKey = () => 'bonus-planet-emphasis';
+      }
+    });
+    return emphasis;
+  });
   const horseGif = document.createElement('img');
   horseGif.src = '/horse.gif';
   horseGif.alt = 'Animated horse';
@@ -585,7 +684,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
   const tardisLabel = document.createElement('div');
   tardisLabel.className = 'planet-label tardis-label';
-  tardisLabel.innerHTML = '<strong>Start here</strong>';
+  tardisLabel.innerHTML = '<strong>Click</strong>';
   labelRoot.appendChild(tardisLabel);
 
   // Click (not drag) to explore a planet or open the TARDIS welcome dialog.
@@ -657,11 +756,14 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   let currentIndex = -1;
   let ended = false;
   let phaseIndex = -1;
+  let compactLayout = false;
 
   function frame(stage: Stage) {
     const p = POSITIONS[stage];
-    cameraTarget.set(p.x + 1.5, p.y + 1.4, p.z + SPECS[stage].radius * 4.8 + 5);
-    lookTarget.set(p.x, p.y, p.z);
+    const extent = SPECS[stage].radius * (SPECS[stage].ring ? 1.8 : 1);
+    const distance = Math.max(extent * 4.5, extent * 2.8 / camera.aspect);
+    cameraTarget.set(p.x + 0.6, p.y + 0.8, p.z + distance);
+    lookTarget.set(p.x, p.y - 0.25, p.z);
   }
 
   const resize = () => {
@@ -671,8 +773,34 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     renderer.domElement.style.width = '100%';
     renderer.domElement.style.height = '100%';
     camera.aspect = w / h;
-    OVERVIEW_POSITION.z = Math.max(74, 40 / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) + 6);
-    if (focusedStage === null && focusedTwin === null && (phaseIndex <= 0 || ended)) cameraTarget.copy(OVERVIEW_POSITION);
+    compactLayout = camera.aspect < 0.9;
+    const layout = compactLayout
+      ? [[-8, 20, 0], [8, 9, -4], [-8, -2, 0], [8, -13, -4], [-7, -27, 0]]
+      : [[-27, -3, 3], [-15, 9, -5], [0, 14, -10], [15, 9, -5], [29, -3, 3]];
+    planets.forEach((planet, index) => {
+      const [x, y, z] = layout[index]!;
+      POSITIONS[planet.stage].set(x!, y!, z!);
+      planet.home.copy(POSITIONS[planet.stage]);
+    });
+    const bonusLayout = compactLayout
+      ? [[-9, -45, -8], [9, -45, -8], [-12, -60, -12], [10, -65, -10]]
+      : [[-11, -24, -12], [11, -24, -12], [-32, -25, -10], [0, -40, -16]];
+    twinPlanets.forEach((planet, index) => {
+      const [x, y, z] = bonusLayout[index]!;
+      planet.mesh.position.set(x!, y!, z!);
+      planet.homeY = y!;
+    });
+    tardis.position.x = compactLayout ? -1 : 0;
+    OVERVIEW_TARGET.set(0, compactLayout ? -18 : -8, -3);
+    OVERVIEW_POSITION.set(0, compactLayout ? -10 : 5,
+      Math.max(compactLayout ? 130 : 90,
+        (compactLayout ? 21 : 44) / (Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect) + 8));
+    if (focusedStage !== null) frame(focusedStage);
+    else if (focusedTwin === null && (phaseIndex <= 0 || ended)) {
+      cameraTarget.copy(OVERVIEW_POSITION);
+      lookTarget.copy(OVERVIEW_TARGET);
+    } else if (focusedTwin === null && currentIndex >= 0) frame(STAGES[currentIndex]!);
+    card.position.set(POSITIONS.selfie.x + SPECS.selfie.radius + 2, POSITIONS.selfie.y + 0.5, POSITIONS.selfie.z + 1.2);
     // Leave room below the planets for the prompt; the tickets menu overlays the scene.
     camera.setViewOffset(w, h, 0, Math.round(h * 0.06), w, h);
     camera.updateProjectionMatrix();
@@ -699,6 +827,8 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
     horseGif.hidden = !showHorse;
 
     twinPlanets.forEach((twin, index) => {
+      const emphasis = bonusEmphasis[index]!;
+      emphasis.value = THREE.MathUtils.lerp(emphasis.value, focusedTwin === index ? 1 : 0, k);
       twin.mesh.position.y = twin.homeY + (reduceMotion ? 0 : Math.sin(t * 0.5 + index * Math.PI) * 0.35);
       twin.mesh.quaternion.copy(camera.quaternion);
       if (index === neighIndex && showHorse) {
@@ -715,14 +845,18 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       tmp.copy(twin.mesh.position);
       tmp.y += 3.8;
       tmp.project(camera);
-      twin.label.style.opacity = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15 ? '0.85' : '0';
+      twin.label.style.opacity = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15 ? (focusedTwin === index ? '1' : '0.4') : '0';
       twin.label.style.transform = `translate(-50%, -100%) translate(${((tmp.x + 1) / 2) * renderer.domElement.clientWidth}px, ${((1 - tmp.y) / 2) * renderer.domElement.clientHeight}px)`;
     });
 
     for (const p of planets) {
       const index = STAGES.indexOf(p.stage);
-      if (p.stage === 'pairing') p.mesh.quaternion.copy(camera.quaternion);
+      if (p.stage === 'pairing' || p.stage === 'humanCheck') p.mesh.quaternion.copy(camera.quaternion);
       else p.mesh.rotation.y += dt * (0.06 + index * 0.012);
+      if (p.stage === 'language' && !reduceMotion) {
+        const clouds = p.mesh.getObjectByName('translatopia-clouds');
+        if (clouds) clouds.rotation.y += dt * 0.015;
+      }
 
       let shakeX = 0;
       let shakeY = 0;
@@ -772,7 +906,12 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       tmp.y += SPECS[p.stage].radius * 1.75;
       tmp.project(camera);
       const visible = tmp.z < 1 && Math.abs(tmp.x) < 1.15 && Math.abs(tmp.y) < 1.15;
-      p.label.style.opacity = visible ? (isCurrent ? '1' : '0.62') : '0';
+      const selected = focusedStage ?? (!ended && phaseIndex > 0 && focusedTwin === null ? STAGES[currentIndex] : null);
+      const overview = selected == null && focusedTwin === null;
+      p.label.style.opacity = visible && (overview || selected === p.stage) ? (selected === p.stage || isCurrent ? '1' : '0.8') : '0';
+      p.label.style.fontSize = compactLayout && overview ? '0.7rem' : '0.8rem';
+      const subtitle = p.label.querySelector('span');
+      if (subtitle) subtitle.hidden = overview;
       p.label.classList.toggle('is-current', isCurrent);
       p.label.classList.toggle('is-passed', isPassed);
       p.label.style.transform = `translate(-50%, -100%) translate(${((tmp.x + 1) / 2) * renderer.domElement.clientWidth}px, ${((1 - tmp.y) / 2) * renderer.domElement.clientHeight}px)`;
@@ -788,7 +927,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
     // TARDIS: gentle bob and spin
     tardis.rotation.y += dt * 0.25;
-    tardis.position.y = 11 + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
+    tardis.position.y = (compactLayout ? 25 : 24) + (reduceMotion ? 0 : Math.sin(t * 0.8) * 0.4);
 
     tmp.copy(tardis.position);
     tmp.y += 2.4;
