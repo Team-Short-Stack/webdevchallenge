@@ -56,12 +56,10 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
     }
   });
 
-  const welcomePhone = el('p', { class: 'phone', hidden: '' });
   const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
     el('div', { class: 'slip' },
       el('h1', { id: 'welcome-title' }, 'welcome to universal help care.'),
       el('p', { id: 'welcome-message', class: 'summary' }, "let's just make sure you are not a dalek."),
-      welcomePhone,
       el('button', { class: 'button', type: 'button', autofocus: '' }, 'get started'),
     ),
   );
@@ -131,7 +129,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       return {
         key: `pairing:${code}:${number}`,
         node: slip(
-          'Call to be served',
+          "call this number and wait for the doctor's instructions",
           el('p', { class: 'phone' }, number),
           el('p', { class: 'hint' }, 'When the agent answers, spell this code, then say “done”: '),
           el('p', { class: 'code', 'aria-label': `Code ${code.split('').join(' ')}` }, code.split('').join(' ')),
@@ -244,8 +242,6 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       if (!welcome.open) welcome.showModal();
     },
     render(state, focusedStage) {
-      welcomePhone.textContent = state.phoneNumber ?? '';
-      welcomePhone.hidden = !state.phoneNumber;
       // Prompt (rebuilt only when it changes, so the QR code and countdown don't flicker)
       const next = buildPrompt(state);
       promptHost.hidden = state.phase === 'pairing' && (!started || focusedStage !== 'pairing');
