@@ -202,7 +202,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       welcomePhone.hidden = !state.phoneNumber;
       // Prompt (rebuilt only when it changes, so the QR code and countdown don't flicker)
       const next = buildPrompt(state);
-      promptHost.hidden = state.phase === 'pairing' && (!state.callInitiated || focusedStage !== 'pairing');
+      promptHost.hidden = state.phase === 'pairing' && focusedStage !== 'pairing';
       if (next.key !== promptKey) {
         promptKey = next.key;
         if (!next.key.startsWith('qr:')) window.clearInterval(countdownTimer);

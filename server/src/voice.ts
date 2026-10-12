@@ -242,7 +242,6 @@ export async function handlePhoneCall(socket: WebSocket, deps: VoiceDeps): Promi
       streamSid = event.message.start.streamSid;
       endingToken = event.message.start.customParameters?.endingToken;
       callSid = event.message.start.callSid;
-      if (!streamStarted) registry.notifyCallStarted();
       streamStarted = true;
       greet();
     }
