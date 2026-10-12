@@ -234,7 +234,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
   }
   const starGeometry = new THREE.BufferGeometry();
   starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xcfd9f5, size: 0.23, sizeAttenuation: true }));
+  const stars = new THREE.Points(starGeometry, new THREE.PointsMaterial({ color: 0xcfd9f5, size: 1.3, sizeAttenuation: false }));
   scene.add(stars);
 
   const galaxyPositions = new Float32Array(16000 * 3);
