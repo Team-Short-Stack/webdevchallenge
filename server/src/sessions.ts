@@ -34,6 +34,9 @@ export interface PhoneLink {
   hangUp(): void;
 }
 
+type LaptopDispatchLogger = (details: { sessionId: string; messageType: ServerMessage['type'];
+  phase?: string; laptopCount: number; dispatchedAt: string; elapsedMs: number }) => void;
+
 export class CallSession {
   readonly id = randomUUID();
   readonly createdAt = Date.now();
@@ -66,6 +69,7 @@ export class CallSession {
     private readonly tickets: TicketStore,
     private readonly broadcastToAll: (message: ServerMessage, except: CallSession) => void,
     buildSelfieUrl: (token: string) => string,
+    private readonly logLaptopDispatch?: LaptopDispatchLogger,
   ) {
     this.gauntlet = new Gauntlet({
       code,
@@ -87,10 +91,18 @@ export class CallSession {
   }
 
   send(message: ServerMessage) {
+    const startedAt = Date.now();
+    let laptopCount = 0;
     const text = JSON.stringify(message);
     for (const socket of this.laptops) {
-      if (socket.readyState === socket.OPEN) socket.send(text);
+      if (socket.readyState === socket.OPEN) {
+        socket.send(text);
+        laptopCount += 1;
+      }
     }
+    this.logLaptopDispatch?.({ sessionId: this.id, messageType: message.type,
+      phase: message.type === 'state_changed' ? message.phase : undefined,
+      laptopCount, dispatchedAt: new Date().toISOString(), elapsedMs: Date.now() - startedAt });
   }
 
   snapshot(): ServerMessage {
@@ -114,7 +126,8 @@ export class Registry {
   readonly tickets = new TicketStore();
   private readonly sessions = new Map<string, CallSession>();
 
-  constructor(private readonly buildSelfieUrl: (token: string) => string) {}
+  constructor(private readonly buildSelfieUrl: (token: string) => string,
+    private readonly logLaptopDispatch?: LaptopDispatchLogger) {}
 
   create(): CallSession {
     let code: string;
@@ -128,6 +141,7 @@ export class Registry {
       this.tickets,
       (message, except) => this.broadcastAll(message, except),
       this.buildSelfieUrl,
+      this.logLaptopDispatch,
     );
     this.sessions.set(session.id, session);
     return session;

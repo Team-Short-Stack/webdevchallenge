@@ -21,6 +21,7 @@ const app = Fastify({ logger: options.logger === false ? false : { level: 'info'
 
 const registry = new Registry(
   (token) => `${config.publicBaseUrl ?? `http://localhost:${config.port}`}/selfie.html?t=${token}`,
+  (details) => app.log.info(details, 'laptop event dispatched'),
 );
 const gate = new StreamGate();
 let activeCalls = 0;
@@ -184,6 +185,7 @@ await app.register(async (scope) => {
   const clientMessage = z.discriminatedUnion('type', [
     z.object({ type: z.literal('hello'), sessionId: z.string().optional() }),
     z.object({ type: z.literal('survey_completed'), selection: z.literal('happy') }),
+    z.object({ type: z.literal('event_received'), eventType: z.enum(['paired', 'state_changed', 'show_language_prompt']) }),
   ]);
 
   scope.get('/ws/laptop', { websocket: true }, (socket, request) => {
@@ -199,7 +201,10 @@ await app.register(async (scope) => {
       } catch {
         return;
       }
-      if (message.type === 'survey_completed') {
+      if (message.type === 'event_received') {
+        if (session) request.log.info({ sessionId: session.id, messageType: message.eventType,
+          receivedAt: new Date().toISOString() }, 'laptop event acknowledged');
+      } else if (message.type === 'survey_completed') {
         session?.completeSurvey();
       } else if (message.type === 'hello') {
         if (session) return;
@@ -223,6 +228,7 @@ await app.register(async (scope) => {
     socket.on('close', () => {
       clearInterval(keepAlive);
       session?.laptops.delete(socket);
+      request.log.info({ sessionId: session?.id }, 'laptop disconnected');
     });
   });
 });
