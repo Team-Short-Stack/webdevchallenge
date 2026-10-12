@@ -13,8 +13,28 @@ import { StreamGate } from './gate.js';
 import { Registry, type CallSession } from './sessions.js';
 import { handlePhoneCall } from './voice.js';
 
-export async function buildApp(config: Config, options: { logger?: boolean; realtimeUrl?: string } = {}) {
+export async function buildApp(config: Config, options: { logger?: boolean; realtimeUrl?: string; editSelfie?: (body: Buffer, mime: string) => Promise<string> } = {}) {
 const app = Fastify({ logger: options.logger === false ? false : { level: 'info' }, bodyLimit: 1024 * 1024 });
+const editingSelfies = new Set<string>();
+const editSelfie = options.editSelfie ?? (async (body: Buffer, mime: string): Promise<string> => {
+  const form = new FormData();
+  form.append('model', 'gpt-image-2');
+  const extension = mime === 'image/png' ? 'png' : mime === 'image/webp' ? 'webp' : 'jpg';
+  form.append('image', new Blob([new Uint8Array(body)], { type: mime }), `selfie.${extension}`);
+  form.append('prompt', 'Edit this selfie into a photorealistic emo makeover. Add glossy jet-black layered side-swept bangs and dark black eyeliner. Preserve the exact person and recognizable facial identity, skin tone, age, expression, facial hair, body, pose, hands, number of visible fingers, clothing, background and all objects. Keep any hat or head-worn object visible and unchanged; place bangs beneath it. Do not add or remove challenge props or change gestures. Change only hairstyle and eyeliner. No text, no cartoon treatment.');
+  form.append('quality', 'medium');
+  form.append('size', 'auto');
+  form.append('output_format', 'jpeg');
+  const response = await fetch('https://api.openai.com/v1/images/edits', {
+    method: 'POST', headers: { Authorization: `Bearer ${config.openaiApiKey}` },
+    body: form, signal: AbortSignal.timeout(90_000),
+  });
+  if (!response.ok) throw new Error(`Image edit failed with HTTP ${response.status}`);
+  const edited = await response.json() as { data?: { b64_json?: string }[] };
+  const image = edited.data?.[0]?.b64_json;
+  if (!image) throw new Error('Image edit returned no photo');
+  return `data:image/jpeg;base64,${image}`;
+});
 
   const publicBase = (hostHeader: string | undefined, protoHeader: string | undefined): string =>
   config.publicBaseUrl ?? `${protoHeader ?? 'https'}://${hostHeader ?? `localhost:${config.port}`}`;
@@ -254,11 +274,21 @@ app.post('/api/selfie', async (request, reply) => {
   if (!mime) return reply.code(415).send({ error: 'That does not look like a JPEG, PNG or WebP image.' });
   if (!session.phone) return reply.code(409).send({ error: 'The call has ended.' });
 
-  const dataUrl = `data:${mime};base64,${body.toString('base64')}`;
-  const result = session.gauntlet.receivePhoto(token, dataUrl);
-  if (!result.ok) return reply.code(410).send({ error: result.error });
-  session.phone.sendPhoto(dataUrl, result.requirement);
-  return { ok: true };
+  if (editingSelfies.has(token)) return reply.code(409).send({ error: 'Your emo makeover is already in progress.' });
+  editingSelfies.add(token);
+  try {
+    const dataUrl = await editSelfie(body, mime);
+    if (!session.phone || session.gauntlet.isEnded) return reply.code(409).send({ error: 'The call ended during your makeover.' });
+    const result = session.gauntlet.receivePhoto(token, dataUrl);
+    if (!result.ok) return reply.code(410).send({ error: result.error });
+    session.phone.sendPhoto(dataUrl, result.requirement);
+    return { ok: true };
+  } catch (error) {
+    request.log.warn({ error: error instanceof Error ? error.message : 'Unknown image edit error' }, 'emo selfie edit failed');
+    return reply.code(502).send({ error: 'Your emo makeover could not finish. Please try again, or ask the agent for a new photo link.' });
+  } finally {
+    editingSelfies.delete(token);
+  }
 });
 
 function detectImage(b: Buffer): string | null {

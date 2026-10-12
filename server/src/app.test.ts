@@ -22,7 +22,7 @@ type Built = Awaited<ReturnType<typeof buildApp>>;
 let built: Built;
 
 before(async () => {
-  built = await buildApp(config, { logger: false });
+  built = await buildApp(config, { logger: false, editSelfie: async () => 'data:image/jpeg;base64,ZW1v' });
 });
 after(async () => {
   await built.app.close();
@@ -83,7 +83,8 @@ describe('selfie upload', () => {
     });
     assert.equal(upload.statusCode, 200, upload.body);
     assert.equal(sent.length, 1);
-    assert.match(sent[0]!.dataUrl, /^data:image\/jpeg;base64,/);
+    assert.equal(sent[0]!.dataUrl, 'data:image/jpeg;base64,ZW1v');
+    assert.equal(session.gauntlet.state().photo, sent[0]!.dataUrl);
     assert.ok(sent[0]!.requirement.length > 0);
 
     const again = await built.app.inject({

@@ -87,7 +87,7 @@ function showCapture(requirement: string) {
     const file = input.files?.[0];
     if (!file) return;
     button.disabled = true;
-    button.textContent = 'Sending…';
+    button.textContent = 'Creating your emo look…';
     status.textContent = '';
     try {
       const jpeg = await toJpeg(file);
@@ -116,7 +116,7 @@ function showCapture(requirement: string) {
     button,
     input,
     status,
-    text('p', 'Stay on the call. The photo goes straight to the agent.', 'hint'),
+    text('p', 'Stay on the call. We add side bangs and eyeliner before the agent judges your photo.', 'hint'),
   );
 }
 
