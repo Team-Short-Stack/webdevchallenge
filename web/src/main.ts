@@ -45,6 +45,7 @@ const ui = createUi(appRoot, {
     try {
       if (state.ended || state.paired || state.phase !== 'pairing') startNewCall();
       showDevPhonePrompt = true;
+      state.callInitiated = true;
       scene?.goToLolzitron();
       render();
       const deadline = Date.now() + 5_000;
@@ -154,6 +155,7 @@ function handle(message: ServerMessage) {
         phase: message.phase,
         attempts: message.attempts,
         paired: message.paired,
+        callInitiated: message.callInitiated ?? message.paired,
         prompt: message.prompt,
         photo: message.photo,
         tickets: message.tickets,
@@ -168,6 +170,9 @@ function handle(message: ServerMessage) {
       state.attempts = message.attempts;
       state.prompt = null; // the server clears the prompt on every state change
       scene?.setPhase(message.phase);
+      break;
+    case 'call_started':
+      state.callInitiated = true;
       break;
     case 'paired':
       state.paired = true;

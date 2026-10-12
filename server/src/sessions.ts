@@ -40,6 +40,7 @@ export class CallSession {
   readonly laptops = new Set<WebSocket>();
   readonly gauntlet: Gauntlet;
   phone: PhoneLink | null = null;
+  callInitiated = false;
 
   constructor(
     readonly code: string,
@@ -82,6 +83,7 @@ export class CallSession {
       phase: s.phase,
       attempts: s.attempts,
       paired: s.paired,
+      callInitiated: this.callInitiated,
       prompt: s.prompt,
       photo: s.photo,
       tickets: this.tickets.recent(),
@@ -110,6 +112,15 @@ export class Registry {
     );
     this.sessions.set(session.id, session);
     return session;
+  }
+
+  /** Before pairing, notify waiting laptops that a phone call has actually started. */
+  notifyCallStarted() {
+    for (const session of this.sessions.values()) {
+      if (session.gauntlet.isEnded || session.phone) continue;
+      session.callInitiated = true;
+      session.send({ type: 'call_started' });
+    }
   }
 
   get(id: string): CallSession | undefined {

@@ -75,11 +75,13 @@ export type ServerMessage =
       phase: Phase;
       attempts: Attempts;
       paired: boolean;
+      callInitiated?: boolean;
       prompt: PromptMessage | null;
       photo: string | null;
       tickets: Ticket[];
     }
   | { type: 'state_changed'; phase: Phase; attempts: Attempts }
+  | { type: 'call_started' }
   | { type: 'paired' }
   | { type: 'selfie_received'; photo: string }
   | { type: 'test_result'; stage: Stage; passed: boolean; note?: string }

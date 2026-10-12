@@ -2,6 +2,7 @@ import type { Attempts, Phase, PromptMessage, Ticket } from '../../shared/protoc
 
 export interface AppState {
   attempts: Attempts;
+  callInitiated: boolean;
   code: string | null;
   connected: boolean;
   ended: null | 'completed' | 'hangup' | 'timeout' | 'disconnected';
@@ -20,6 +21,7 @@ export const emptyAttempts = (): Attempts => ({ pairing: 0, language: 0, selfie:
 export function initialState(): AppState {
   return {
     attempts: emptyAttempts(),
+    callInitiated: false,
     code: null,
     connected: false,
     ended: null,
