@@ -19,19 +19,23 @@ const allonsy = new Audio('/audio/allonsy.m4a');
 const surveyMusic = new Audio('/audio/opus-1-clip.mp3');
 surveyMusic.loop = true;
 let surveyOpen = false;
+let surveyTimer: number | undefined;
 
 function showSurvey() {
   if (surveyOpen) return;
   surveyOpen = true;
-  whirr.pause();
-  allonsy.pause();
-  playCue(surveyMusic);
-  void ui.showSurvey().then(() => {
-    surveyMusic.pause();
-    surveyMusic.currentTime = 0;
-    surveyOpen = false;
-    send({ type: 'survey_completed', selection: 'happy' });
-  });
+  surveyTimer = window.setTimeout(() => {
+    surveyTimer = undefined;
+    whirr.pause();
+    allonsy.pause();
+    playCue(surveyMusic);
+    void ui.showSurvey().then(() => {
+      surveyMusic.pause();
+      surveyMusic.currentTime = 0;
+      surveyOpen = false;
+      send({ type: 'survey_completed', selection: 'happy' });
+    });
+  }, 2000);
 }
 
 function playCue(audio: HTMLAudioElement) {
@@ -230,6 +234,7 @@ function handle(message: ServerMessage) {
       if (message.mine) state.myTicket = message.ticket;
       break;
     case 'call_ended':
+      window.clearTimeout(surveyTimer);
       surveyMusic.pause();
       ui.closeSurvey();
       surveyOpen = false;
@@ -252,6 +257,7 @@ function handle(message: ServerMessage) {
 }
 
 function startNewCall() {
+  window.clearTimeout(surveyTimer);
   // Detach first: late messages and close events from the old session must be ignored.
   window.clearTimeout(reconnectTimer);
   reconnectTimer = undefined;
