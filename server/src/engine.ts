@@ -159,13 +159,7 @@ export class Gauntlet {
 
   startLanguage(): ToolResult {
     if (this.phase !== 'language') return this.wrongStage('language');
-    const firstTry = this.attempts.language === 1;
-    const choice = firstTry
-      ? LANGUAGES.find((language) => language.language === 'Spanish')!
-      : pickOne(
-          LANGUAGES.filter((l) => l.language !== this.language?.language),
-          this.rng,
-        );
+    const choice = LANGUAGES.find((language) => language.language === 'Spanish')!;
     this.language = choice;
     this.show({
       type: 'show_language_prompt',
@@ -186,7 +180,7 @@ export class Gauntlet {
     this.resolve('language', passed);
     return passed
       ? ok('Say exactly "i see you, T-bone, la araña discoteca" then call request_selfie.')
-      : ok('Rejected. Say the pronunciation has been logged as an incident, then call start_language_test for a new language.');
+      : ok('Rejected. Say the pronunciation has been logged as an incident, then call start_language_test to retry the same Spanish phrase.');
   }
 
   // --------------------------------------------------------------- selfie

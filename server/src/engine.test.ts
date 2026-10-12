@@ -68,7 +68,7 @@ describe('gauntlet', () => {
     assert.equal(g.phase, 'language');
   });
 
-  it('picks a different language after a failed attempt', () => {
+  it('keeps Spanish after a failed attempt', () => {
     const { g, events } = setup([0, 0]);
     g.pair('4271');
     g.startLanguage();
@@ -77,7 +77,8 @@ describe('gauntlet', () => {
     assert.equal(g.phase, 'language');
     g.startLanguage();
     const second = lastOfType(events, 'show_language_prompt')!.language;
-    assert.notEqual(first, second);
+    assert.equal(first, 'Spanish');
+    assert.equal(second, 'Spanish');
   });
 
   it('reacts with "i see you, T-bone, la araña discoteca" on a passed attempt', () => {
