@@ -25,7 +25,7 @@ const registry = new Registry(
 );
 const gate = new StreamGate();
 let activeCalls = 0;
-const finalHolds = new Map<string, { session: CallSession; callSid: string; timer: NodeJS.Timeout }>();
+const finalHolds = new Map<string, { session: CallSession; callSid: string; timer: NodeJS.Timeout; angelShown?: boolean }>();
 const devPhoneAttempts = new Map<string, { startedAt: number; count: number }>();
 app.addHook('onClose', async () => {
   for (const hold of finalHolds.values()) clearTimeout(hold.timer);
@@ -123,7 +123,7 @@ if (config.voiceTransport === 'legacy') app.post('/incoming-call', async (reques
   return reply.type('text/xml').send(vr.toString());
 });
 
-for (const route of ['/final-hold', '/call-failed']) {
+for (const route of ['/final-hold', '/call-failed', '/final-disconnect']) {
   app.post(route, async (request, reply) => {
     const params = (request.body ?? {}) as Record<string, string>;
     const base = publicBase(request.headers.host, request.headers['x-forwarded-proto'] as string | undefined);
@@ -139,6 +139,13 @@ for (const route of ['/final-hold', '/call-failed']) {
       if (route === '/final-hold') {
         vr.play(`${base}/audio/opus-1-clip.mp3`);
         vr.redirect({ method: 'POST' }, `${base}/call-failed?t=${token}`);
+      } else if (route === '/call-failed') {
+        if (!hold.angelShown) {
+          hold.angelShown = true;
+          hold.session.send({ type: 'show_final_angel' });
+        }
+        vr.pause({ length: 3 });
+        vr.redirect({ method: 'POST' }, `${base}/final-disconnect?t=${token}`);
       } else {
         clearTimeout(hold.timer);
         finalHolds.delete(token);

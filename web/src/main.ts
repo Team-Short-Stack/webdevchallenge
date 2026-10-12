@@ -20,6 +20,28 @@ const surveyMusic = new Audio('/audio/opus-1-clip.mp3');
 surveyMusic.loop = true;
 let surveyOpen = false;
 let surveyTimer: number | undefined;
+let finalAngelShown = false;
+const finalAngel = document.createElement('div');
+finalAngel.className = 'final-angel';
+finalAngel.hidden = true;
+const finalAngelImage = new Image();
+finalAngelImage.alt = 'A Weeping Angel has interrupted your call.';
+finalAngelImage.src = '/weeping-angel.gif';
+finalAngel.append(finalAngelImage);
+document.body.append(finalAngel);
+let finalAngelBlob: Blob | undefined;
+let finalAngelUrl: string | undefined;
+void fetch('/weeping-angel.gif').then(async (response) => {
+  if (response.ok) finalAngelBlob = await response.blob();
+}).catch(() => undefined);
+
+function showFinalAngel() {
+  finalAngelShown = true;
+  if (finalAngelUrl) URL.revokeObjectURL(finalAngelUrl);
+  finalAngelUrl = finalAngelBlob ? URL.createObjectURL(finalAngelBlob) : undefined;
+  finalAngelImage.src = finalAngelUrl ?? `/weeping-angel.gif?reveal=${Date.now()}`;
+  finalAngel.hidden = false;
+}
 
 function showSurvey() {
   if (surveyOpen) return;
@@ -93,7 +115,7 @@ const ui = createUi(appRoot, {
         activeDevCall = null;
         device.destroy();
         if (devDevice === device) devDevice = null;
-        if (state.ended !== 'completed' && state.phase !== 'done') startNewCall();
+        if (!finalAngelShown && state.ended !== 'completed' && state.phase !== 'done') startNewCall();
         ui.setDevPhoneActive(false, status);
         render();
       };
@@ -198,6 +220,9 @@ function handle(message: ServerMessage) {
     case 'show_survey':
       showSurvey();
       break;
+    case 'show_final_angel':
+      showFinalAngel();
+      break;
     case 'state_changed': {
       const phaseChanged = state.phase !== message.phase;
       state.phase = message.phase;
@@ -238,7 +263,8 @@ function handle(message: ServerMessage) {
       surveyMusic.pause();
       ui.closeSurvey();
       surveyOpen = false;
-      if (message.reason !== 'completed') {
+      finalAngel.hidden = true;
+      if (message.reason !== 'completed' && !finalAngelShown) {
         startNewCall();
         ui.toast('Call ended. Preparing a fresh code for your next call.', 'info');
         return;
@@ -257,6 +283,10 @@ function handle(message: ServerMessage) {
 }
 
 function startNewCall() {
+  finalAngel.hidden = true;
+  finalAngelShown = false;
+  if (finalAngelUrl) URL.revokeObjectURL(finalAngelUrl);
+  finalAngelUrl = undefined;
   window.clearTimeout(surveyTimer);
   // Detach first: late messages and close events from the old session must be ignored.
   window.clearTimeout(reconnectTimer);

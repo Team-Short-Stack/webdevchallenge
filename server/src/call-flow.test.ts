@@ -214,9 +214,19 @@ for (const transport of ['legacy', 'tac'] as const) {
       const hold = await h.webhook(holdRoute, params);
       assert.match(await hold.text(), /<Play>.*opus-1-clip\.mp3<\/Play>/);
       const endRoute = `/call-failed?t=${endingToken}`;
-      assert.equal((await h.webhook(endRoute, params)).status, 200);
-      await laptop.messages.wait(e => e.type === 'call_ended' && e.reason === 'disconnected');
+      // The music completion reveals the angel before Twilio pauses and hangs up.
+      const reveal = await h.webhook(endRoute, params);
+      assert.match(await reveal.text(), /<Pause length="3"\/>.*\/final-disconnect/);
+      await laptop.messages.wait(e => e.type === 'show_final_angel');
+      assert.equal(laptop.messages.events.some(e => e.type === 'call_ended'), false);
       await h.webhook(endRoute, params);
+      await delay(20);
+      assert.equal(laptop.messages.events.filter(e => e.type === 'show_final_angel').length, 1);
+      const disconnectRoute = `/final-disconnect?t=${endingToken}`;
+      const disconnect = await h.webhook(disconnectRoute, params);
+      assert.match(await disconnect.text(), /<Hangup/);
+      await laptop.messages.wait(e => e.type === 'call_ended' && e.reason === 'disconnected');
+      await h.webhook(disconnectRoute, params);
       await delay(20);
       assert.equal(laptop.messages.events.filter(e => e.type === 'call_ended').length, 1);
       assert.equal(laptop.messages.events.some(e => e.type === 'ticket_created'), false);

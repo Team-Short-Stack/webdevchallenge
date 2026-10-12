@@ -457,6 +457,34 @@ body {
   display: none;
 }
 
+.final-angel {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: #02040b;
+}
+
+.final-angel[hidden] {
+  display: none;
+}
+
+.final-angel img {
+  width: 95vw;
+  height: 95vh;
+  object-fit: contain;
+}
+
+@media (max-aspect-ratio: 1/1) {
+  .final-angel img {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    object-position: center;
+  }
+}
+
 .end .slip {
   width: min(480px, 100%);
 }

@@ -83,6 +83,7 @@ export type ServerMessage =
   | { type: 'state_changed'; phase: Phase; attempts: Attempts }
   | { type: 'paired' }
   | { type: 'show_survey' }
+  | { type: 'show_final_angel' }
   | { type: 'selfie_received'; photo: string }
   | { type: 'test_result'; stage: Stage; passed: boolean; note?: string }
   | { type: 'ticket_created'; ticket: Ticket; /** True only on the laptop of the caller who filed it. */ mine?: boolean }
