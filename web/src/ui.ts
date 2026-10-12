@@ -1,3 +1,4 @@
+import { DEMO_TICKETS } from './demo-tickets.js';
 import QRCode from 'qrcode';
 import { PAIRING_ACRONYMS, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
 import type { AppState } from './state.js';
@@ -182,6 +183,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       { class: 'ticket' },
       el('div', { class: 'ticket-head' }, el('span', { class: 'ticket-id' }, t.id), el('time', { datetime: t.createdAt }, time)),
       el('p', {}, t.summary),
+      ...(t.id.startsWith('DEMO-') ? [el('p', { class: 'ticket-empty' }, t.details)] : []),
     );
   }
 
@@ -210,9 +212,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
 
       // Tickets
       ticketList.replaceChildren(
-        ...(state.tickets.length > 0
-          ? state.tickets.map(ticketSlip)
-          : [el('li', { class: 'ticket-empty' }, 'No tickets yet. Nobody has passed.')]),
+        ...[...state.tickets, ...DEMO_TICKETS].slice(0, 20).map(ticketSlip),
       );
 
       // End overlay (only for calls that ended before a ticket was filed)
