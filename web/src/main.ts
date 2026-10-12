@@ -1,4 +1,5 @@
 import './style.css';
+import type { Device as TwilioDevice } from '@twilio/voice-sdk';
 import { STAGE_LABELS, type ClientMessage, type ServerMessage, type Stage } from '../../shared/protocol.js';
 import { createScene } from './scene.js';
 import { initialState } from './state.js';
@@ -7,6 +8,8 @@ import { createUi } from './ui.js';
 const SESSION_KEY = 'hdfh.session';
 
 const state = initialState();
+let showDevPhonePrompt = false;
+let devPhoneConnecting = false;
 const sceneRoot = document.getElementById('scene') as HTMLElement;
 const labelRoot = document.getElementById('labels') as HTMLElement;
 const appRoot = document.getElementById('app') as HTMLElement;
@@ -49,13 +52,77 @@ if (!scene) {
 
 const ui = createUi(appRoot, {
   onNewCall: startNewCall,
+  async onDevPhone(accessCode) {
+    if (!accessCode) {
+      ui.setDevPhoneActive(false, 'Enter the Production access code first.');
+      return;
+    }
+    if (devPhoneConnecting || activeDevCall) return;
+    devPhoneConnecting = true;
+    try {
+      if (state.ended || state.paired || state.phase !== 'pairing') startNewCall();
+      showDevPhonePrompt = true;
+      scene?.goToLolzitron();
+      render();
+      const deadline = Date.now() + 5_000;
+      while (!state.connected || !state.sessionId || !state.code) {
+        if (Date.now() >= deadline) throw new Error('The app is not connected. Refresh and try again.');
+        await new Promise(resolve => window.setTimeout(resolve, 50));
+      }
+      ui.setDevPhoneActive(false, 'Connecting to Twilio…');
+      const { Device } = await import('@twilio/voice-sdk');
+      const response = await fetch('/api/dev-phone/token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ accessCode }),
+      });
+      const data = await response.json() as { token?: string; phoneNumber?: string; error?: string };
+      if (!response.ok || !data.token || !data.phoneNumber) throw new Error(data.error ?? 'Dev Phone is not configured.');
+      devDevice?.destroy();
+      devDevice = new Device(data.token);
+      devDevice.on('error', (error) => ui.setDevPhoneActive(false, error.message));
+      const device = devDevice;
+      const call = await device.connect({ params: { To: data.phoneNumber } });
+      activeDevCall = call;
+      const finish = (status: string) => {
+        if (activeDevCall !== call) return;
+        activeDevCall = null;
+        device.destroy();
+        if (devDevice === device) devDevice = null;
+        ui.setDevPhoneActive(false, status);
+        render();
+      };
+      call.on('accept', () => ui.setDevPhoneActive(true, `Connected to ${data.phoneNumber}.`));
+      call.on('disconnect', () => finish('Call ended.'));
+      call.on('cancel', () => finish('Call cancelled.'));
+      call.on('reject', () => finish('Call rejected.'));
+      call.on('error', (error) => finish(error.message));
+      ui.setDevPhoneActive(true, `Calling ${data.phoneNumber}…`);
+    } catch (error) {
+      devDevice?.destroy();
+      devDevice = null;
+      activeDevCall = null;
+      ui.setDevPhoneActive(false, error instanceof Error ? error.message : 'Could not start the test call.');
+    } finally {
+      devPhoneConnecting = false;
+    }
+  },
+  onHangupDevPhone() {
+    activeDevCall?.disconnect();
+    activeDevCall = null;
+    devDevice?.destroy();
+    devDevice = null;
+    ui.setDevPhoneActive(false, 'Call ended.');
+  },
   onGetStarted() {
     whirr.pause();
     playCue(allonsy);
     scene?.goToLolzitron();
   },
 });
-const render = () => ui.render(state, scene?.focusedStage ?? null);
+let devDevice: TwilioDevice | null = null;
+let activeDevCall: ReturnType<TwilioDevice['connect']> extends Promise<infer T> ? T | null : null = null;
+const render = () => ui.render(state, showDevPhonePrompt && state.phase === 'pairing' ? 'pairing' : scene?.focusedStage ?? null);
 
 let socket: WebSocket | null = null;
 let retries = 0;
@@ -71,6 +138,7 @@ function connect() {
   socket = ws;
 
   ws.addEventListener('open', () => {
+    if (socket !== ws) return;
     retries = 0;
     state.connected = true;
     send({ type: 'hello', sessionId: sessionStorage.getItem(SESSION_KEY) ?? undefined });
@@ -78,6 +146,7 @@ function connect() {
   });
 
   ws.addEventListener('message', (event) => {
+    if (socket !== ws) return;
     try {
       handle(JSON.parse(String(event.data)) as ServerMessage);
     } catch (error) {
@@ -86,6 +155,7 @@ function connect() {
   });
 
   ws.addEventListener('close', () => {
+    if (socket !== ws) return;
     state.connected = false;
     render();
     const delay = reconnectNow ? 0 : Math.min(1000 * 2 ** retries, 8000);
@@ -97,7 +167,8 @@ function connect() {
 
 function handle(message: ServerMessage) {
   switch (message.type) {
-    case 'snapshot':
+    case 'snapshot': {
+      const phaseChanged = state.phase !== message.phase;
       Object.assign(state, {
         sessionId: message.sessionId,
         code: message.code,
@@ -110,19 +181,23 @@ function handle(message: ServerMessage) {
         ended: null,
       });
       sessionStorage.setItem(SESSION_KEY, message.sessionId);
-      scene?.setPhase(message.phase);
+      // A reconnect refreshes the session, but must not clear the selected planet.
+      if (phaseChanged) scene?.setPhase(message.phase);
       scene?.setPhoto(message.photo);
       if (message.surveyPending) showSurvey();
       break;
+    }
     case 'show_survey':
       showSurvey();
       break;
-    case 'state_changed':
+    case 'state_changed': {
+      const phaseChanged = state.phase !== message.phase;
       state.phase = message.phase;
       state.attempts = message.attempts;
       state.prompt = null; // the server clears the prompt on every state change
-      scene?.setPhase(message.phase);
+      if (phaseChanged) scene?.setPhase(message.phase);
       break;
+    }
     case 'paired':
       state.paired = true;
       ui.toast('Verified. Barely.', 'pass');
@@ -184,6 +259,12 @@ async function loadConfig() {
     }
   } catch {
     /* the number is optional */
+  }
+  try {
+    const res = await fetch('/api/dev-phone/config');
+    ui.setDevPhoneVisible(res.ok);
+  } catch {
+    ui.setDevPhoneVisible(false);
   }
 }
 

@@ -1,3 +1,4 @@
+import { DEMO_TICKETS } from './demo-tickets.js';
 import QRCode from 'qrcode';
 import { PAIRING_ACRONYMS, STAGE_LABELS, type Stage, type Ticket } from '../../shared/protocol.js';
 import type { AppState } from './state.js';
@@ -24,21 +25,36 @@ export interface UiApi {
   closeSurvey(): void;
   render(state: AppState, focusedStage: Stage | null): void;
   toast(message: string, tone: 'pass' | 'fail' | 'info'): void;
+  setDevPhoneVisible(visible: boolean): void;
+  setDevPhoneActive(active: boolean, status: string): void;
 }
 
-export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void }): UiApi {
+export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGetStarted(): void; onDevPhone(accessCode: string): void; onHangupDevPhone(): void }): UiApi {
   let started = false;
   const promptHost = el('section', { class: 'prompt', 'aria-live': 'polite' });
   const ticketList = el('ol', { class: 'ticket-list' });
-  const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Tickets'), ticketList);
+  const ticketsPanel = el('aside', { class: 'tickets', 'aria-label': 'Tickets' }, el('h2', {}, 'Recent tickets'), ticketList);
   const ticketsMenu = el('details', { class: 'tickets-menu' },
     el('summary', {}, 'Tickets'),
     ticketsPanel,
   );
   const toastHost = el('div', { class: 'toasts', role: 'status', 'aria-live': 'polite' });
+  const devPhone = el('aside', { class: 'dev-phone', 'aria-label': 'Computer test phone' });
+  const accessCode = el('input', { class: 'dev-phone-code', type: 'password', placeholder: 'Production access code', autocomplete: 'off', 'aria-label': 'Production access code' });
+  const devPhoneButton = el('button', { class: 'button dev-phone-button', type: 'button' }, 'Call from this computer');
+  const devPhoneStatus = el('span', { class: 'dev-phone-status', role: 'status' }, '');
+  devPhone.append(accessCode, devPhoneButton, devPhoneStatus);
   const endHost = el('div', { class: 'end', hidden: '' });
 
-  root.append(promptHost, ticketsMenu, toastHost, endHost);
+  root.append(promptHost, devPhone, ticketsMenu, toastHost, endHost);
+  devPhone.hidden = true;
+  devPhoneButton.addEventListener('click', () => {
+    if (devPhoneButton.dataset.active === 'true') handlers.onHangupDevPhone();
+    else {
+      started = true;
+      handlers.onDevPhone(accessCode.value);
+    }
+  });
 
   const welcomePhone = el('p', { class: 'phone', hidden: '' });
   const welcome = el('dialog', { class: 'welcome', 'aria-labelledby': 'welcome-title', 'aria-describedby': 'welcome-message' },
@@ -203,6 +219,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
       { class: 'ticket' },
       el('div', { class: 'ticket-head' }, el('span', { class: 'ticket-id' }, t.id), el('time', { datetime: t.createdAt }, time)),
       el('p', {}, t.summary),
+      ...(t.id.startsWith('DEMO-') ? [el('p', { class: 'ticket-empty' }, t.details)] : []),
     );
   }
 
@@ -216,6 +233,12 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
         completeSurvey = resolve;
         if (!survey.open) survey.showModal();
       });
+    },
+    setDevPhoneVisible(visible) { devPhone.hidden = !visible; },
+    setDevPhoneActive(active, status) {
+      devPhoneButton.dataset.active = String(active);
+      devPhoneButton.textContent = active ? 'Hang up test call' : 'Call from this computer';
+      devPhoneStatus.textContent = status;
     },
     showWelcome() {
       if (!welcome.open) welcome.showModal();
@@ -235,9 +258,7 @@ export function createUi(root: HTMLElement, handlers: { onNewCall(): void; onGet
 
       // Tickets
       ticketList.replaceChildren(
-        ...(state.tickets.length > 0
-          ? state.tickets.map(ticketSlip)
-          : [el('li', { class: 'ticket-empty' }, 'No tickets yet. Nobody has passed.')]),
+        ...[...state.tickets, ...DEMO_TICKETS].slice(0, 20).map(ticketSlip),
       );
 
       // End overlay (only for calls that ended before a ticket was filed)

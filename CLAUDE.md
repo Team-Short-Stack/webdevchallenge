@@ -1,6 +1,7 @@
-# CLAUDE.md
+# Project guidance for ChatGPT and Codex
 
-Context for Claude Code. Read this first, then `PLAN.md` for what to do next.
+Use this as the project context when working in ChatGPT or Codex. Read `PLAN.md` for the current roadmap.
+The filename is retained for compatibility with tools that look for `CLAUDE.md`.
 
 ## What this is
 
@@ -33,6 +34,13 @@ npm run build          # web app into web/dist
 npm run dev            # server with reload (needs .env)
 ```
 
+## Guidance for ChatGPT and Codex
+
+- Inspect the relevant code and existing project conventions before making changes.
+- Keep changes focused, and update both server and web when changing the shared protocol.
+- Do not expose or commit `.env` values, API keys, or other credentials.
+- Do not deploy or publish the application unless explicitly asked.
+
 ## Rules that must not be broken
 
 1. **The server decides, never the prompt.** Pass or fail, randomness, answer matching and word counting are done
@@ -42,15 +50,20 @@ npm run dev            # server with reload (needs .env)
    the state machine.
 3. **Tool results must never contain an answer the model would have to judge.** The model would say it aloud.
 4. **Keep `shared/protocol.ts` the single source of truth** for messages. Update server and web together.
-5. **Secrets stay in environment variables.** Never log full phone numbers (use `maskNumber`), never commit `.env`.
+5. **Secrets stay in environment variables.** Never log full phone numbers (use `maskNumber`), never commit env files.
 6. **Protections stay on:** Twilio signature check, stream gate, caller allow list, concurrency and duration caps.
    Do not add an endpoint that places outbound calls.
 7. **Add a test for behavior you change** in `engine.ts` or `app.ts`. Tests use a scripted RNG; see `engine.test.ts`.
 
 ## Gotchas
 
-- Twilio trial accounts accept inbound calls only from verified numbers.
+- Twilio trial accounts accept calls only from verified numbers, and trial Voice accounts block `<Stream>`, which
+  this app needs for its live audio bridge. The full phone flow therefore requires an upgraded account.
 - Twilio gives call webhooks a hard 15 second limit, so hosts that sleep when idle will fail the first call.
+- The app needs a long-running Node server: Twilio's media WebSocket must stay connected for the duration of a call.
+  Avoid static-only hosting and serverless runtimes with short request limits or scale-to-zero behavior.
+- Call sessions and tickets are stored in memory. A single server instance is simplest; multiple instances need shared
+  session storage and coordination.
 - ngrok's free plan shows a browser warning page once per week, which the phone sees when scanning the QR code.
 - The selfie QR needs `PUBLIC_BASE_URL` set to a public address, or it points at localhost and the phone cannot reach it.
 - The voice bridge has never been run against live Twilio and OpenAI in development; see `PLAN.md`.
