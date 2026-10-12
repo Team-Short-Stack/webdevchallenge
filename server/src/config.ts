@@ -70,6 +70,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   }
   const e = parsed.data;
   const isProduction = e.NODE_ENV === 'production';
+  // Catch a copied Railway URL before it sends call media to another environment.
+  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim().toLowerCase();
+  if (railwayDomain && e.PUBLIC_BASE_URL) {
+    const configuredDomain = new URL(e.PUBLIC_BASE_URL).hostname.toLowerCase();
+    if (configuredDomain.endsWith('.up.railway.app') && railwayDomain.endsWith('.up.railway.app') && configuredDomain !== railwayDomain) {
+      throw new Error(`PUBLIC_BASE_URL points to ${configuredDomain}, but this Railway service is ${railwayDomain}. Set PUBLIC_BASE_URL=https://${railwayDomain} in this environment.`);
+    }
+  }
   if (isProduction && !e.TWILIO_AUTH_TOKEN) {
     throw new Error('TWILIO_AUTH_TOKEN is required when NODE_ENV=production, so Twilio signatures can be checked.');
   }

@@ -167,3 +167,11 @@ Both `legacy` and `tac` are covered: browser pairing, incoming-call signatures, 
 The OpenAI SDK packages are pinned together through root `overrides`. TAC has an optional older Agents peer dependency; allowing mixed versions makes the Twilio transport emit tool events that the newer session cannot dispatch.
 
 For local Dev Phone testing, fill the ignored `.env` with `VOICE_TRANSPORT=tac`, `ENABLE_DEV_PHONE=true`, the Twilio account/auth token, API Key SID and matching secret, phone number, TwiML App SID, and a `DEV_PHONE_ACCESS_CODE` of at least 16 characters. Set `PUBLIC_BASE_URL` to your HTTPS tunnel URL. Use your existing TwiML App with its Voice request URL set to `<PUBLIC_BASE_URL>/incoming-call` (POST). For Railway Sandbox testing, set these same values in Sandbox service variables and use the Sandbox HTTPS domain as `PUBLIC_BASE_URL`. Build with `npm run build`, then start with `npm run dev`; open http://localhost:5050 and use the Dev Phone panel.
+
+### Calls disconnect immediately after the greeting
+
+Keep each environment's `PUBLIC_BASE_URL` pointed at that same environment. If Sandbox inherits the Production URL, its incoming-call webhook grants the call in Sandbox but sends the media WebSocket to Production, where the stream is rejected. The same mismatch sends final-hold callbacks to the wrong server.
+
+In Railway service variables, set `PUBLIC_BASE_URL` to `https://${{RAILWAY_PUBLIC_DOMAIN}}` so it follows that environment's public domain, then deploy the variable change. Keep the phone number's Voice webhook and the browser-phone TwiML App Voice URL pointed at the environment being tested, followed by `/incoming-call` (POST). Open that same environment's app page for its pairing code.
+
+Configuration now rejects mismatched Railway-generated domains at startup with an explicit error. Local ngrok and custom-domain configuration remain available.

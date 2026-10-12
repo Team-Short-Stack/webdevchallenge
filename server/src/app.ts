@@ -49,6 +49,7 @@ app.get('/api/dev-phone/config', async (_request, reply) => {
   return { enabled: true, phoneNumber: config.twilioPhoneNumber };
 });
 
+// Dev Phone for testing
 app.post('/api/dev-phone/token', async (request, reply) => {
   if (!config.enableDevPhone || !config.twilioTwimlAppSid || !config.twilioApiKey || !config.twilioApiSecret || !config.twilioAccountSid) {
     return reply.code(404).send({ error: 'Dev Phone is disabled.' });
