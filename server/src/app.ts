@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 import path from 'node:path';
 import fastifyFormBody from '@fastify/formbody';
 import fastifyStatic from '@fastify/static';
@@ -13,7 +13,7 @@ import { StreamGate } from './gate.js';
 import { Registry, type CallSession } from './sessions.js';
 import { handlePhoneCall } from './voice.js';
 
-export async function buildApp(config: Config, options: { logger?: boolean } = {}) {
+export async function buildApp(config: Config, options: { logger?: boolean; realtimeUrl?: string } = {}) {
 const app = Fastify({ logger: options.logger === false ? false : { level: 'info' }, bodyLimit: 1024 * 1024 });
 
   const publicBase = (hostHeader: string | undefined, protoHeader: string | undefined): string =>
@@ -25,6 +25,7 @@ const registry = new Registry(
 const gate = new StreamGate();
 let activeCalls = 0;
 const finalHolds = new Map<string, { session: CallSession; callSid: string; timer: NodeJS.Timeout }>();
+const devPhoneAttempts = new Map<string, { startedAt: number; count: number }>();
 app.addHook('onClose', async () => {
   for (const hold of finalHolds.values()) clearTimeout(hold.timer);
 });
@@ -43,6 +44,34 @@ app.get('/healthz', async () => ({ ok: true, sessions: registry.size, activeCall
 
 // Public settings the laptop app needs.
 app.get('/api/config', async () => ({ phoneNumber: config.phoneDisplayNumber ?? null }));
+app.get('/api/dev-phone/config', async (_request, reply) => {
+  if (!config.enableDevPhone) return reply.code(404).send({ error: 'Dev Phone is disabled.' });
+  return { enabled: true, phoneNumber: config.twilioPhoneNumber };
+});
+
+// Dev Phone for testing
+app.post('/api/dev-phone/token', async (request, reply) => {
+  if (!config.enableDevPhone || !config.twilioTwimlAppSid || !config.twilioApiKey || !config.twilioApiSecret || !config.twilioAccountSid) {
+    return reply.code(404).send({ error: 'Dev Phone is disabled.' });
+  }
+  const now = Date.now();
+  const attempt = devPhoneAttempts.get(request.ip);
+  if (attempt && now - attempt.startedAt < 60_000 && attempt.count >= 5) {
+    return reply.code(429).send({ error: 'Too many attempts. Wait a minute and try again.' });
+  }
+  if (!attempt || now - attempt.startedAt >= 60_000) devPhoneAttempts.set(request.ip, { startedAt: now, count: 1 });
+  else attempt.count += 1;
+  const { accessCode } = (request.body ?? {}) as { accessCode?: unknown };
+  const supplied = typeof accessCode === 'string' ? Buffer.from(accessCode) : Buffer.alloc(0);
+  const expected = Buffer.from(config.devPhoneAccessCode ?? '');
+  if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+    return reply.code(401).send({ error: 'Incorrect access code.' });
+  }
+  const identity = `dev_${randomUUID().replaceAll('-', '')}`;
+  const token = new twilio.jwt.AccessToken(config.twilioAccountSid, config.twilioApiKey, config.twilioApiSecret, { identity, ttl: 900 });
+  token.addGrant(new twilio.jwt.AccessToken.VoiceGrant({ outgoingApplicationSid: config.twilioTwimlAppSid, incomingAllow: false }));
+  return { token: token.toJwt(), identity, phoneNumber: config.twilioPhoneNumber };
+});
 
 // ---------------------------------------------------------------- Twilio
 
@@ -53,7 +82,7 @@ function rejectCall(reply: import('fastify').FastifyReply, message: string) {
   return reply.type('text/xml').send(vr.toString());
 }
 
-app.post('/incoming-call', async (request, reply) => {
+if (config.voiceTransport === 'legacy') app.post('/incoming-call', async (request, reply) => {
   const params = (request.body ?? {}) as Record<string, string>;
   const base = publicBase(request.headers.host, request.headers['x-forwarded-proto'] as string | undefined);
 
@@ -69,7 +98,7 @@ app.post('/incoming-call', async (request, reply) => {
   }
 
   const from = params.From;
-  if (config.allowedCallers.length > 0 && (!from || !config.allowedCallers.includes(from))) {
+  if (config.allowedCallers.length > 0 && (!from || (!(config.enableDevPhone && from.startsWith('client:dev_')) && !config.allowedCallers.includes(from)))) {
     request.log.warn({ from: maskNumber(from) }, 'rejected caller not on the allow list');
     return rejectCall(reply, 'This line is closed to you. Please try again never.');
   }
@@ -123,30 +152,33 @@ for (const route of ['/final-hold', '/call-failed']) {
 }
 
 await app.register(async (scope) => {
-  scope.get('/media-stream', { websocket: true }, (socket, request) => {
-    if (!gate.consume()) {
-      request.log.warn('rejected a media stream with no matching incoming call');
-      socket.close(1008, 'unexpected stream');
-      return;
-    }
-    activeCalls += 1;
-    void handlePhoneCall(socket, {
-      config,
-      registry,
-      log: request.log,
-      onFinalHold(session, token, callSid) {
-        const timer = setTimeout(() => {
-          finalHolds.delete(token);
-          session.gauntlet.endCall('disconnected');
-        }, 90_000);
-        timer.unref();
-        finalHolds.set(token, { session, callSid, timer });
-      },
-      onCallEnd: () => {
-        activeCalls = Math.max(0, activeCalls - 1);
-      },
+  if (config.voiceTransport === 'legacy') {
+    scope.get('/media-stream', { websocket: true }, (socket, request) => {
+      if (!gate.consume()) {
+        request.log.warn('rejected a media stream with no matching incoming call');
+        socket.close(1008, 'unexpected stream');
+        return;
+      }
+      activeCalls += 1;
+      void handlePhoneCall(socket, {
+        realtimeUrl: options.realtimeUrl,
+        config,
+        registry,
+        log: request.log,
+        onFinalHold(session, token, callSid) {
+          const timer = setTimeout(() => {
+            finalHolds.delete(token);
+            session.gauntlet.endCall('disconnected');
+          }, 90_000);
+          timer.unref();
+          finalHolds.set(token, { session, callSid, timer });
+        },
+        onCallEnd: () => {
+          activeCalls = Math.max(0, activeCalls - 1);
+        },
+      });
     });
-  });
+  }
 
   // ------------------------------------------------------------- laptop
   const clientMessage = z.discriminatedUnion('type', [
@@ -239,5 +271,34 @@ if (existsSync(webDist)) {
   app.log.warn(`No built web app at ${webDist}. Run "npm run build" to serve the scene and selfie page from this server.`);
 }
 
-  return { app, registry, gate, activeCalls: () => activeCalls };
+  let tacServer: import('twilio-agent-connect').TACServer | undefined;
+  if (config.voiceTransport === 'tac') {
+    process.env.TAC_ANALYTICS_DISABLED ??= 'true';
+    const { attachTacServer } = await import('./tac-transport.js');
+    const attached = await attachTacServer({
+        app,
+        realtimeUrl: options.realtimeUrl,
+        config,
+        registry,
+        gate,
+        getActiveCalls: () => activeCalls,
+        incrementActiveCalls: (delta) => { activeCalls = Math.max(0, activeCalls + delta); },
+        onFinalHold(session, token, callSid) {
+          const timer = setTimeout(() => {
+            finalHolds.delete(token);
+            session.gauntlet.endCall('disconnected');
+          }, 90_000);
+          timer.unref();
+          finalHolds.set(token, { session, callSid, timer });
+        },
+      });
+    tacServer = attached.server;
+    app.addHook('onClose', async () => {
+      attached.tac.shutdown();
+      const { shutdownAnalytics } = await import('twilio-agent-connect');
+      await shutdownAnalytics();
+    });
+  }
+
+  return { app, registry, gate, activeCalls: () => activeCalls, tacServer };
 }
