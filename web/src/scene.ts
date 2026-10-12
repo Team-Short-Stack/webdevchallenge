@@ -491,7 +491,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
 
     const label = document.createElement('div');
     label.className = 'planet-label';
-    label.innerHTML = `<strong>${PLANETS[stage]}</strong><span>${STAGE_LABELS[stage]}</span>`;
+    label.innerHTML = `<strong>${PLANETS[stage]}</strong><span>${stage === 'ticket' ? 'Land of Make Believe' : STAGE_LABELS[stage]}</span>`;
     labelRoot.appendChild(label);
 
     return { stage, mesh, halo, haloMaterial, label, home, shake: 0, pulse: 0, tint: 0 };
@@ -1076,7 +1076,10 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       p.label.style.opacity = visible && (overview || selected === p.stage) ? (selected === p.stage || isCurrent ? '1' : '0.8') : '0';
       p.label.style.fontSize = compactLayout && overview ? '0.7rem' : '0.8rem';
       const subtitle = p.label.querySelector('span');
-      if (subtitle) subtitle.hidden = overview;
+      if (subtitle) {
+        subtitle.hidden = overview;
+        if (p.stage === 'ticket') subtitle.style.fontSize = '0.7rem';
+      }
       p.label.classList.toggle('is-current', isCurrent);
       p.label.classList.toggle('is-passed', isPassed);
       p.label.style.transform = `translate(-50%, -100%) translate(${((tmp.x + 1) / 2) * renderer.domElement.clientWidth}px, ${((1 - tmp.y) / 2) * renderer.domElement.clientHeight}px)`;
