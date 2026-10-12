@@ -271,8 +271,11 @@ function startNewCall() {
   const { phoneNumber, tickets } = state;
   Object.assign(state, initialState(), { phoneNumber, tickets, connected: false });
   scene?.setPhoto(null);
+  showDevPhonePrompt = false;
+  whirr.pause();
+  allonsy.pause();
+  // Reset to the overview; selecting the TARDIS starts the next walkthrough.
   scene?.setPhase('pairing');
-  scene?.goToLolzitron();
   retries = 0;
   render();
   connect();
