@@ -428,9 +428,9 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
       cardigan.name = 'lomb-cardigan';
       mesh.add(cardigan);
       const surfaceMaterial = mesh.material as THREE.MeshStandardMaterial;
-      surfaceMaterial.bumpMap = surfaceMaterial.map;
-      surfaceMaterial.bumpScale = 0.045;
-      surfaceMaterial.roughness = 0.82;
+      surfaceMaterial.transparent = true;
+      surfaceMaterial.opacity = 0;
+      surfaceMaterial.depthWrite = false;
       trolleyTrack.rotation.x = -Math.PI / 2 + 0.45;
       mesh.add(trolleyTrack);
       for (const [inner, outer, opacity, color] of [
@@ -1035,7 +1035,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
         const cardigan = p.mesh.getObjectByName('lomb-cardigan');
         if (cardigan) {
           cardigan.quaternion.copy(p.mesh.quaternion).invert().multiply(camera.quaternion);
-          cardigan.position.set(0, 0, SPECS.ticket.radius + 0.05).applyQuaternion(cardigan.quaternion);
+          cardigan.position.set(0, 0, 0);
         }
         const orbit = reduceMotion ? 0.6 : t * Math.PI * 2 / 25;
         const radius = SPECS.ticket.radius * 1.61;
@@ -1045,7 +1045,7 @@ export function createScene(container: HTMLElement, labelRoot: HTMLElement, onTa
           if (wheel.name === 'trolley-wheel') wheel.rotation.x = reduceMotion ? 0 : -t * 3.5;
         }
         mustache.quaternion.copy(camera.quaternion);
-        mustache.position.set(0, SPECS.ticket.radius * 0.3, SPECS.ticket.radius + 0.1)
+        mustache.position.set(0, SPECS.ticket.radius * 0.3, 0.1)
           .applyQuaternion(camera.quaternion).add(p.mesh.position);
         mustache.scale.setScalar(scale);
         mustacheMaterial.opacity = reduceMotion ? 1 : (1 + Math.sin(t * Math.PI / 3)) / 2;
